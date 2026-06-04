@@ -1,5 +1,7 @@
 # Settle — Accounts Payable for waste haulers
 
+[![CI](https://github.com/Qweffy/settle/actions/workflows/ci.yml/badge.svg)](https://github.com/Qweffy/settle/actions/workflows/ci.yml)
+
 Settle is a modern **Accounts Payable / Bill Pay** product — where a finance team manages the full life of a vendor bill: **intake → code → approve → schedule → pay**, plus AP aging and an **AI bill review**. It's built in the spirit of Ramp Bill Pay × Stripe Dashboard, and the demo data is themed for a waste‑hauling company (**Summit Waste Services**) paying the vendors a hauler actually pays: landfill tipping fees, fleet fuel, truck maintenance, leasing, insurance.
 
 > **Why a hauler?** This take‑home is for Trashlab, "the operating system for waste haulers." Trashlab owns the hauler's **money‑in** (billing their customers). Settle is the **other half of the ledger — the money‑out** (paying their vendors). Same domain, opposite side.
@@ -82,13 +84,41 @@ DATABASE_URL="postgresql://...neon.tech/...?sslmode=require"
 ANTHROPIC_API_KEY=""                # optional — Capture falls back to a mock parse without it
 ```
 
-Scripts: `dev` · `build` · `start` · `lint` · `typecheck` · `db:push` · `db:seed` · `db:generate` · `db:migrate` · `db:studio`.
+Scripts: `dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test:e2e` · `db:push` · `db:seed` · `db:generate` · `db:migrate` · `db:studio`.
 
 ### Deploy (Vercel + Neon)
 
 1. Push this repo to GitHub and **Import** it in Vercel.
 2. Set env vars in Vercel: `DATABASE_URL` (your Neon string) and optionally `ANTHROPIC_API_KEY`.
 3. Deploy. Run `npm run db:push && npm run db:seed` once against the same database to populate it.
+
+---
+
+## Testing
+
+Three layers, weighted toward end-to-end coverage of the real workflows:
+
+| Layer | Tool | What it covers |
+| --- | --- | --- |
+| **Unit** | Vitest | Pure domain logic, no DB or network — the lifecycle state machine (`lib/status.ts`), the approval-rules engine (`lib/approval-rules.ts`), money/date formatting, and the AI invoice parser's deterministic fallback. ~33 tests, <2s. |
+| **Integration** | _(folded into e2e)_ | The e2e layer drives the real Server Actions and database through the UI, so it *is* the integration layer. A separate mock-DB suite would be brittle against Drizzle and low-signal, so it's deliberately omitted. |
+| **E2E** | Playwright | Key user flows against a production build with a real, seeded database: OCR capture → persisted bill, manual bill creation, the **$50k approval gate** (role-gated, evaluated server-side), bulk mark-paid, duplicate detection, the vendor directory, and navigation + 404s. |
+
+```bash
+npm run test            # unit (Vitest)
+npm run test:e2e        # e2e (Playwright) — needs a database (below)
+```
+
+**The e2e database.** The app uses Neon's HTTP driver, which speaks HTTP rather than the Postgres wire protocol — so e2e runs against a self-contained **Neon HTTP proxy** (a Postgres container + [`local-neon-http-proxy`](https://github.com/TimoWilhelm/local-neon-http-proxy)) rather than a plain local Postgres. No external database or secrets needed:
+
+```bash
+docker compose -f docker-compose.test.yml up -d --wait
+export DATABASE_URL=postgres://postgres:postgres@db.localtest.me:5432/main
+npm run db:push && npm run db:seed
+npm run test:e2e
+```
+
+**CI.** Every push runs three parallel jobs — `verify` (typecheck · lint · build), `unit`, and `e2e`. The e2e job spins up the Neon proxy, seeds a fresh database, builds, and runs Playwright, uploading the HTML report as an artifact. Keeping e2e in its own job means an infra hiccup never reds the core gates. _(The e2e suite already earned its keep: it caught a real `/dashboard` 500 — an activity type the icon map didn't cover — before it could ship.)_
 
 ---
 
