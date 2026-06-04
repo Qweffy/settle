@@ -190,12 +190,12 @@ function StageUpload({ onProcess, pending }: { onProcess: () => void; pending: b
 }
 
 /* ============================== STAGE 2: PROCESSING */
-function StageProcessing({ pending }: { pending: boolean }) {
+function StageProcessing({ pending, done }: { pending: boolean; done: boolean }) {
   return (
     <div className="stage">
       <div className="stage-head">
         <span className="stage-num">2</span><span className="stage-title">Processing</span>
-        <span className="stage-cap"><span className="dot" style={{ background: 'var(--review-solid)' }} />{pending ? 'Reading…' : 'Idle'}</span>
+        <span className="stage-cap"><span className="dot" style={{ background: done ? 'var(--paid-solid)' : 'var(--review-solid)' }} />{done ? 'Read' : pending ? 'Reading…' : 'Idle'}</span>
       </div>
       <div className="proc-body">
         <div className="scan-wrap">
@@ -211,20 +211,23 @@ function StageProcessing({ pending }: { pending: boolean }) {
           <div className="proc-claude">
             <span className="pc-ic"><Icon name="sparkles" size={18} /></span>
             <div>
-              <div className="pc-t">Claude is reading this invoice<span className="dots"><span /><span /><span /></span></div>
+              <div className="pc-t">Settle is reading this invoice<span className="dots"><span /><span /><span /></span></div>
               <div className="pc-s">Regional_Landfill_INV-1046.pdf · 2 pages</div>
             </div>
           </div>
           <div className="proc-steps">
-            {STEPS.map((s, i) => (
-              <div className={'pstep ' + (s.done ? 'done' : s.active ? 'active' : 'pending')} key={i}>
-                <span className="ps-ic"><Icon name={s.done ? 'check' : s.active ? 'loader' : 'circle'} size={12} className={s.active ? 'spin' : ''} /></span>
-                <div className="ps-main">
-                  <div className="ps-l">{s.label}</div>
-                  <div className="ps-d">{s.detail}</div>
+            {STEPS.map((s, i) => {
+              const state = done || s.done ? 'done' : s.active ? 'active' : 'pending';
+              return (
+                <div className={'pstep ' + state} key={i}>
+                  <span className="ps-ic"><Icon name={state === 'done' ? 'check' : state === 'active' ? 'loader' : 'circle'} size={12} className={state === 'active' ? 'spin' : ''} /></span>
+                  <div className="ps-main">
+                    <div className="ps-l">{s.label}</div>
+                    <div className="ps-d">{s.detail}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="proc-foot"><Icon name="lock" size={13} />Processed in your workspace · usually under 10 seconds</div>
         </div>
@@ -467,7 +470,7 @@ export default function CapturePage() {
 
         <div className="top-row">
           <StageUpload onProcess={handleProcess} pending={isPending} />
-          <StageProcessing pending={isPending} />
+          <StageProcessing pending={isPending} done={!!result} />
         </div>
         {/* key remounts the draft so its local state (GL edits, resolved flags)
             resets to the freshly mapped data when a new result arrives. */}

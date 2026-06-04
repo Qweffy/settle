@@ -61,7 +61,7 @@ export type Draft = {
 export const DRAFT: Draft = {
   vendor: 'Regional Landfill Authority',
   vendorMatched: true,
-  vendorSub: 'Matched · 14 prior bills · Net 30',
+  vendorSub: 'Matched · prior bills on file',
   inv: 'INV-1046',
   issued: 'Jun 1, 2026',
   due: 'Jul 1, 2026',
@@ -71,7 +71,7 @@ export const DRAFT: Draft = {
   memo: 'May MSW disposal — Cedar Hills transfer',
   method: 'ACH',
   remit: '••7782',
-  confidence: 96,
+  confidence: 92,
 };
 
 export type LineFlag = false | 'amber' | 'red';
@@ -87,7 +87,7 @@ export type LineItem = {
 };
 
 export const LINES: LineItem[] = [
-  { id: 'l1', desc: 'Tipping fees — MSW disposal', qty: '1,300 tons', unit: 64.5, amount: 83850.0, gl: 'Tipping Fees', flag: false },
+  { id: 'l1', desc: 'Tipping fees — MSW disposal', qty: '1,300', unit: 64.5, amount: 83850.0, gl: 'Tipping Fees', flag: false },
   { id: 'l2', desc: 'Fuel / energy surcharge', qty: '—', unit: null, amount: 412.0, gl: 'Tipping Fees', flag: 'amber' },
   { id: 'l3', desc: 'Administrative fee', qty: '—', unit: null, amount: 250.0, gl: 'Office', flag: 'amber', isNew: true },
   { id: 'l4', desc: 'State environmental fee', qty: '—', unit: null, amount: 888.0, gl: 'Tipping Fees', flag: false },

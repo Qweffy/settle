@@ -106,6 +106,8 @@ export async function parseInvoice(
   vendorHistory: string,
 ): Promise<OcrResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
+    // Artificial latency so the demo's "Processing" stage is visible before the draft fills in.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
     return { ...mockParse(input, vendorName), usedAI: false };
   }
 
@@ -159,16 +161,17 @@ function mockParse(_input: InvoiceInput, vendorName: string): { extraction: OcrE
     tax: 0,
     total: 85400,
     lineItems: [
-      { description: 'Tipping fees — MSW disposal', quantity: 1335, unitPrice: 62.57, amount: 83540, glGuess: 'Tipping Fees' },
-      { description: 'Fuel / energy surcharge', quantity: null, unitPrice: null, amount: 1448, glGuess: 'Tipping Fees' },
+      { description: 'Tipping fees — MSW disposal', quantity: 1300, unitPrice: 64.5, amount: 83850, glGuess: 'Tipping Fees' },
+      { description: 'Fuel / energy surcharge', quantity: null, unitPrice: null, amount: 412, glGuess: 'Tipping Fees' },
       { description: 'Administrative fee', quantity: null, unitPrice: null, amount: 250, glGuess: 'Office' },
-      { description: 'State environmental fee', quantity: null, unitPrice: null, amount: 162, glGuess: 'Tipping Fees' },
+      { description: 'State environmental fee', quantity: null, unitPrice: null, amount: 888, glGuess: 'Tipping Fees' },
     ],
   };
   const flags: OcrFlag[] = [
-    { type: 'anomalous_surcharge', severity: 'high', title: 'Fuel surcharge $412 — 32% above this vendor\'s 6-month average', message: 'Regional Landfill\'s fuel surcharge has averaged ~$312 across the last 6 invoices. This statement charges $412.', lineRef: 'Line 2 · Fuel / energy surcharge' },
-    { type: 'new_fee', severity: 'med', title: 'New "admin fee" $250 not seen on prior Regional Landfill invoices', message: 'No administrative-fee line appears on the last 12 invoices from this vendor. Confirm it\'s contractual before approving.', lineRef: 'Line 3 · Administrative fee' },
-    { type: 'amount_deviation', severity: 'low', title: 'Tonnage 18% above trailing 3-month average', message: '1,335 tons vs ~1,135 avg. Within range for a closure week, but verify the haul logs.', lineRef: 'Line 1 · Tipping fees' },
+    { type: 'anomalous_surcharge', severity: 'med', title: 'Fuel surcharge $412 — 32% above this vendor’s 6-month average', message: 'Regional Landfill’s fuel surcharge has averaged ~$312 across the last 6 invoices. This statement charges $412.', lineRef: 'Line 2 · Fuel / energy surcharge' },
+    { type: 'new_fee', severity: 'med', title: 'New “admin fee” $250 not seen on prior Regional Landfill invoices', message: 'No administrative-fee line appears on the last 12 invoices from this vendor. Confirm it’s contractual before approving.', lineRef: 'Line 3 · Administrative fee' },
+    { type: 'possible_duplicate', severity: 'high', title: 'Possible duplicate of INV-1042 (same amount, 4 days apart)', message: 'INV-1042 for $85,400.00 was received May 28 and is already scheduled. This invoice matches the amount to the cent.', lineRef: 'Header · Invoice # & amount' },
+    { type: 'vendor_bank_change', severity: 'high', title: 'Regional Landfill’s bank account changed since last payment', message: 'Remit-to account ends ••7782; your last 14 payments went to ••3310. Verify the change with a known contact before paying — common vendor-impersonation pattern.', lineRef: 'Payment details · Remit-to' },
   ];
   return { extraction, flags };
 }
