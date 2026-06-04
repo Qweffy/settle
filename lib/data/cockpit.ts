@@ -41,6 +41,7 @@ export type Line = {
   amount: number;
   gl: string;
   split: boolean;
+  splits?: { gl: string; amount: number }[];
   flag?: boolean;
 };
 

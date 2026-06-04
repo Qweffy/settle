@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, vendors, users } from '@/db/schema';
+import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, lineItemSplits, vendors, users } from '@/db/schema';
 import { assertTransition, type BillLifecycle } from '@/lib/status';
 import type { OcrExtraction, OcrFlag } from '@/lib/ocr';
 import { DEMO_ORG } from '@/lib/demo';
@@ -270,7 +270,23 @@ type NewBillLine = {
   unitPriceCents: number | null;
   amountCents: number;
   glLabel: string;
+  splits?: { glLabel: string; amountCents: number }[];
 };
+
+// Persist each line's GL splits. The caller must pass the inserted line item's
+// id; percentBps is the split's share of the line total, in basis points.
+async function insertLineSplits(rows: { lineItemId: string; lineAmountCents: number; splits: { glLabel: string; amountCents: number }[] }[]) {
+  const values = rows.flatMap(({ lineItemId, lineAmountCents, splits }) =>
+    splits.map((s) => ({
+      id: rid('split'),
+      lineItemId,
+      glLabel: s.glLabel,
+      amountCents: s.amountCents,
+      percentBps: lineAmountCents > 0 ? Math.round((s.amountCents / lineAmountCents) * 10000) : null,
+    })),
+  );
+  if (values.length > 0) await db.insert(lineItemSplits).values(values);
+}
 
 // Persist a manually-entered bill (New bill form) and submit it for approval.
 export async function createBill(input: {
@@ -319,17 +335,21 @@ export async function createBill(input: {
   });
 
   if (input.lineItems.length > 0) {
-    await db.insert(billLineItems).values(
-      input.lineItems.map((l, i) => ({
-        id: rid('li'),
-        billId,
-        description: l.description,
-        quantity: l.quantity,
-        unitPriceCents: l.unitPriceCents,
-        amountCents: l.amountCents,
-        glLabel: l.glLabel,
-        sortOrder: i,
-      })),
+    const lineRows = input.lineItems.map((l, i) => ({
+      id: rid('li'),
+      billId,
+      description: l.description,
+      quantity: l.quantity,
+      unitPriceCents: l.unitPriceCents,
+      amountCents: l.amountCents,
+      glLabel: l.glLabel,
+      sortOrder: i,
+    }));
+    await db.insert(billLineItems).values(lineRows);
+    await insertLineSplits(
+      input.lineItems
+        .map((l, i) => ({ lineItemId: lineRows[i].id, lineAmountCents: l.amountCents, splits: l.splits ?? [] }))
+        .filter((r) => r.splits.length > 0),
     );
   }
 
@@ -383,19 +403,24 @@ export async function updateBill(
     .where(eq(bills.id, billId));
 
   // Replace line items wholesale — simplest correct strategy for a small set.
+  // Their splits cascade away on delete, so we just reinsert fresh below.
   await db.delete(billLineItems).where(eq(billLineItems.billId, billId));
   if (input.lineItems.length > 0) {
-    await db.insert(billLineItems).values(
-      input.lineItems.map((l, i) => ({
-        id: rid('li'),
-        billId,
-        description: l.description,
-        quantity: l.quantity,
-        unitPriceCents: l.unitPriceCents,
-        amountCents: l.amountCents,
-        glLabel: l.glLabel,
-        sortOrder: i,
-      })),
+    const lineRows = input.lineItems.map((l, i) => ({
+      id: rid('li'),
+      billId,
+      description: l.description,
+      quantity: l.quantity,
+      unitPriceCents: l.unitPriceCents,
+      amountCents: l.amountCents,
+      glLabel: l.glLabel,
+      sortOrder: i,
+    }));
+    await db.insert(billLineItems).values(lineRows);
+    await insertLineSplits(
+      input.lineItems
+        .map((l, i) => ({ lineItemId: lineRows[i].id, lineAmountCents: l.amountCents, splits: l.splits ?? [] }))
+        .filter((r) => r.splits.length > 0),
     );
   }
 

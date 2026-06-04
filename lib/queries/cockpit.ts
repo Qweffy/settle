@@ -85,7 +85,7 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
     with: {
       vendor: true,
       createdByUser: true,
-      lineItems: true,
+      lineItems: { with: { splits: true } },
       flags: true,
       comments: { with: { author: true } },
       approvals: { with: { actor: true } },
@@ -150,16 +150,20 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
       .filter((n): n is string => n != null)
       .map((n) => parseInt(n, 10) - 1),
   );
-  const lines: Line[] = ordered.map((l, i) => ({
-    id: l.id,
-    desc: l.description,
-    qty: l.quantity != null ? l.quantity.toLocaleString('en-US') : '1',
-    unit: (l.unitPriceCents ?? l.amountCents) / 100,
-    amount: l.amountCents / 100,
-    gl: l.glLabel ?? bill.glAccount ?? '',
-    split: false,
-    flag: flaggedLineIdx.has(i) || undefined,
-  }));
+  const lines: Line[] = ordered.map((l, i) => {
+    const hasSplits = l.splits.length > 0;
+    return {
+      id: l.id,
+      desc: l.description,
+      qty: l.quantity != null ? l.quantity.toLocaleString('en-US') : '1',
+      unit: (l.unitPriceCents ?? l.amountCents) / 100,
+      amount: l.amountCents / 100,
+      gl: l.glLabel ?? bill.glAccount ?? '',
+      split: hasSplits,
+      splits: hasSplits ? l.splits.map((s) => ({ gl: s.glLabel, amount: s.amountCents / 100 })) : undefined,
+      flag: flaggedLineIdx.has(i) || undefined,
+    };
+  });
 
   const totals: Totals = {
     subtotal: bill.subtotalCents / 100,

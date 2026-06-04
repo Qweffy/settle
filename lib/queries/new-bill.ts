@@ -24,6 +24,15 @@ export async function getNewBillFormData(): Promise<NewBillFormData> {
   return { vendors: vendorRows, glAccounts: glRows };
 }
 
+export type BillFormInitialLine = {
+  description: string;
+  qty: string;
+  unit: string;
+  amount: string;
+  glLabel: string;
+  splits: { glLabel: string; amount: string }[];
+};
+
 export type BillFormInitial = {
   vendorId: string;
   invoiceNumber: string;
@@ -31,14 +40,14 @@ export type BillFormInitial = {
   dueDate: string;
   memo: string;
   tax: string;
-  lines: { description: string; qty: string; unit: string; amount: string; glLabel: string }[];
+  lines: BillFormInitialLine[];
 };
 
 // Load an existing bill in the shape the BillForm consumes (for editing).
 export async function getBillForEdit(billId: string): Promise<BillFormInitial | null> {
   const bill = await db.query.bills.findFirst({
     where: eq(bills.id, billId),
-    with: { lineItems: true },
+    with: { lineItems: { with: { splits: true } } },
   });
   if (!bill) return null;
   const toInputDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : '');
@@ -57,6 +66,7 @@ export async function getBillForEdit(billId: string): Promise<BillFormInitial | 
       unit: centsToStr(l.unitPriceCents),
       amount: centsToStr(l.amountCents),
       glLabel: l.glLabel ?? '',
+      splits: l.splits.map((s) => ({ glLabel: s.glLabel, amount: centsToStr(s.amountCents) })),
     })),
   };
 }

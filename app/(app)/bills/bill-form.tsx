@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
@@ -9,7 +9,8 @@ import { createBill, updateBill, checkDuplicate } from '@/lib/actions/bills';
 import type { NewBillFormData, BillFormInitial } from '@/lib/queries/new-bill';
 import './bill-form.css';
 
-type Line = { key: string; description: string; qty: string; unit: string; amount: string; glLabel: string };
+type Split = { key: string; glLabel: string; amount: string };
+type Line = { key: string; description: string; qty: string; unit: string; amount: string; glLabel: string; splits: Split[] };
 
 export function BillForm({
   data,
@@ -23,7 +24,9 @@ export function BillForm({
   const router = useRouter();
   const firstGl = data.glAccounts[0]?.name ?? '';
   const seq = useRef(initial?.lines.length ?? 1);
-  const makeLine = (): Line => ({ key: `l${seq.current++}`, description: '', qty: '', unit: '', amount: '', glLabel: firstGl });
+  const splitSeq = useRef(0);
+  const makeLine = (): Line => ({ key: `l${seq.current++}`, description: '', qty: '', unit: '', amount: '', glLabel: firstGl, splits: [] });
+  const makeSplit = (): Split => ({ key: `s${splitSeq.current++}`, glLabel: firstGl, amount: '' });
 
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? '');
   const [invoiceNumber, setInvoiceNumber] = useState(initial?.invoiceNumber ?? '');
@@ -34,8 +37,16 @@ export function BillForm({
   const [dupe, setDupe] = useState<{ invoiceNumber: string; amount: number; statusLabel: string } | null>(null);
   const [lines, setLines] = useState<Line[]>(() =>
     initial && initial.lines.length > 0
-      ? initial.lines.map((l, i) => ({ key: `l${i}`, ...l }))
-      : [{ key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl }],
+      ? initial.lines.map((l, i) => ({
+          key: `l${i}`,
+          description: l.description,
+          qty: l.qty,
+          unit: l.unit,
+          amount: l.amount,
+          glLabel: l.glLabel,
+          splits: l.splits.map((s, j) => ({ key: `l${i}s${j}`, glLabel: s.glLabel, amount: s.amount })),
+        }))
+      : [{ key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl, splits: [] }],
   );
   const [saving, startSave] = useTransition();
 
@@ -51,6 +62,18 @@ export function BillForm({
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const addLine = () => setLines((ls) => [...ls, makeLine()]);
   const removeLine = (key: string) => setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : ls));
+
+  const mapSplits = (key: string, fn: (splits: Split[]) => Split[]) =>
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, splits: fn(l.splits) } : l)));
+  // Toggle the split editor: opening seeds one row, closing clears them so the
+  // line falls back to carrying its own single GL.
+  const toggleSplit = (key: string) =>
+    mapSplits(key, (splits) => (splits.length > 0 ? [] : [makeSplit()]));
+  const addSplit = (key: string) => mapSplits(key, (splits) => [...splits, makeSplit()]);
+  const removeSplit = (lineKey: string, splitKey: string) =>
+    mapSplits(lineKey, (splits) => splits.filter((s) => s.key !== splitKey));
+  const updateSplit = (lineKey: string, splitKey: string, patch: Partial<Split>) =>
+    mapSplits(lineKey, (splits) => splits.map((s) => (s.key === splitKey ? { ...s, ...patch } : s)));
 
   const validLines = lines.filter((l) => l.description.trim() !== '' && num(l.amount) > 0);
   const canSave = vendorId !== '' && invoiceNumber.trim() !== '' && validLines.length > 0;
@@ -77,13 +100,19 @@ export function BillForm({
         dueDate: dueDate || null,
         memo: memo.trim() || null,
         taxCents: Math.round(taxNum * 100),
-        lineItems: validLines.map((l) => ({
-          description: l.description.trim(),
-          quantity: l.qty.trim() !== '' ? Math.round(num(l.qty)) : null,
-          unitPriceCents: l.unit.trim() !== '' ? Math.round(num(l.unit) * 100) : null,
-          amountCents: Math.round(num(l.amount) * 100),
-          glLabel: l.glLabel,
-        })),
+        lineItems: validLines.map((l) => {
+          const splits = l.splits
+            .filter((s) => num(s.amount) > 0)
+            .map((s) => ({ glLabel: s.glLabel, amountCents: Math.round(num(s.amount) * 100) }));
+          return {
+            description: l.description.trim(),
+            quantity: l.qty.trim() !== '' ? Math.round(num(l.qty)) : null,
+            unitPriceCents: l.unit.trim() !== '' ? Math.round(num(l.unit) * 100) : null,
+            amountCents: Math.round(num(l.amount) * 100),
+            glLabel: l.glLabel,
+            ...(splits.length > 0 ? { splits } : {}),
+          };
+        }),
       };
       const id = editId ? await updateBill(editId, payload) : await createBill(payload);
       router.push(`/bills/${id}`);
@@ -164,29 +193,80 @@ export function BillForm({
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((l) => (
-                    <tr key={l.key}>
-                      <td><input className="nb-cell" value={l.description} onChange={(e) => updateLine(l.key, { description: e.target.value })} placeholder="Description" /></td>
-                      <td className="r"><input className="nb-cell r" inputMode="decimal" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} placeholder="—" /></td>
-                      <td className="r"><input className="nb-cell r" inputMode="decimal" value={l.unit} onChange={(e) => updateLine(l.key, { unit: e.target.value })} placeholder="—" /></td>
-                      <td className="r"><input className="nb-cell r money" inputMode="decimal" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" /></td>
-                      <td>
-                        <div className="nb-selwrap">
-                          <select className="nb-cell gl" value={l.glLabel} onChange={(e) => updateLine(l.key, { glLabel: e.target.value })}>
-                            {data.glAccounts.map((g) => (
-                              <option key={g.id} value={g.name}>{g.name}</option>
-                            ))}
-                          </select>
-                          <Icon name="chevron-down" size={12} className="nb-selchev" />
-                        </div>
-                      </td>
-                      <td>
-                        <button type="button" className="nb-rm" onClick={() => removeLine(l.key)} disabled={lines.length === 1} aria-label="Remove line">
-                          <Icon name="x" size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {lines.map((l) => {
+                    const hasSplits = l.splits.length > 0;
+                    const lineAmt = num(l.amount);
+                    const splitSum = l.splits.reduce((s, sp) => s + num(sp.amount), 0);
+                    const balanced = Math.abs(splitSum - lineAmt) < 0.005;
+                    return (
+                      <React.Fragment key={l.key}>
+                        <tr>
+                          <td><input className="nb-cell" value={l.description} onChange={(e) => updateLine(l.key, { description: e.target.value })} placeholder="Description" /></td>
+                          <td className="r"><input className="nb-cell r" inputMode="decimal" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} placeholder="—" /></td>
+                          <td className="r"><input className="nb-cell r" inputMode="decimal" value={l.unit} onChange={(e) => updateLine(l.key, { unit: e.target.value })} placeholder="—" /></td>
+                          <td className="r"><input className="nb-cell r money" inputMode="decimal" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" /></td>
+                          <td>
+                            {hasSplits ? (
+                              <span className="nb-glsplit"><Icon name="git-fork" size={12} />Split across {l.splits.length} {l.splits.length === 1 ? 'account' : 'accounts'}</span>
+                            ) : (
+                              <div className="nb-selwrap">
+                                <select className="nb-cell gl" value={l.glLabel} onChange={(e) => updateLine(l.key, { glLabel: e.target.value })}>
+                                  {data.glAccounts.map((g) => (
+                                    <option key={g.id} value={g.name}>{g.name}</option>
+                                  ))}
+                                </select>
+                                <Icon name="chevron-down" size={12} className="nb-selchev" />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <div className="nb-rowtools">
+                              <button type="button" className={'nb-split' + (hasSplits ? ' on' : '')} onClick={() => toggleSplit(l.key)} aria-pressed={hasSplits} aria-label={hasSplits ? 'Remove splits' : 'Split across GL accounts'} title="Split across GL accounts">
+                                <Icon name="split" size={14} />
+                              </button>
+                              <button type="button" className="nb-rm" onClick={() => removeLine(l.key)} disabled={lines.length === 1} aria-label="Remove line">
+                                <Icon name="x" size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {hasSplits &&
+                          l.splits.map((sp) => (
+                            <tr className="nb-splitrow" key={sp.key}>
+                              <td className="nb-split-lead"><Icon name="corner-down-right" size={13} /></td>
+                              <td colSpan={2}>
+                                <div className="nb-selwrap">
+                                  <select className="nb-cell gl" value={sp.glLabel} onChange={(e) => updateSplit(l.key, sp.key, { glLabel: e.target.value })}>
+                                    {data.glAccounts.map((g) => (
+                                      <option key={g.id} value={g.name}>{g.name}</option>
+                                    ))}
+                                  </select>
+                                  <Icon name="chevron-down" size={12} className="nb-selchev" />
+                                </div>
+                              </td>
+                              <td className="r"><input className="nb-cell r money" inputMode="decimal" value={sp.amount} onChange={(e) => updateSplit(l.key, sp.key, { amount: e.target.value })} placeholder="0.00" /></td>
+                              <td />
+                              <td>
+                                <button type="button" className="nb-rm" onClick={() => removeSplit(l.key, sp.key)} aria-label="Remove split">
+                                  <Icon name="x" size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        {hasSplits && (
+                          <tr className="nb-splitfoot">
+                            <td />
+                            <td colSpan={5}>
+                              <div className="nb-splitfoot-row">
+                                <button type="button" className="nb-addsplit" onClick={() => addSplit(l.key)}><Icon name="plus" size={12} />Add split</button>
+                                <span className={'nb-splithint' + (balanced ? ' ok' : '')}>splits {fmt(splitSum)} / {fmt(lineAmt)}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
               <button type="button" className="nb-addline" onClick={addLine}><Icon name="plus" size={14} />Add line</button>

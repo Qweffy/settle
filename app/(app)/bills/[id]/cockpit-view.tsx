@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { Fragment, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
@@ -288,16 +288,31 @@ function CenterPanel({
             <table className="li">
               <thead><tr><th>Description</th><th className="r">Qty</th><th className="r">Unit price</th><th className="r">Amount</th><th>GL account</th><th></th></tr></thead>
               <tbody>
-                {lines.map((l) => (
-                  <tr key={l.id}>
-                    <td><div className="li-desc">{l.flag && <Icon name="flag" size={14} className="lflag" />}{l.desc}</div></td>
-                    <td className="r"><span className="li-qty">{l.qty}</span></td>
-                    <td className="r"><span className="li-unit">{fmt(l.unit)}</span></td>
-                    <td className="r"><span className="li-amt">{fmt(l.amount)}</span></td>
-                    <td><GLDropdown value={l.gl} onChange={(g) => setGL(l.id, g)} /></td>
-                    <td><span className={'li-split' + (splits.has(l.id) ? ' on' : '')} title="Split across GL accounts" onClick={() => toggleSplit(l.id)}><Icon name="split" size={14} /></span></td>
-                  </tr>
-                ))}
+                {lines.map((l) => {
+                  const lineSplits = l.splits ?? [];
+                  const hasSplits = lineSplits.length > 0;
+                  return (
+                    <Fragment key={l.id}>
+                      <tr>
+                        <td><div className="li-desc">{l.flag && <Icon name="flag" size={14} className="lflag" />}{l.desc}</div></td>
+                        <td className="r"><span className="li-qty">{l.qty}</span></td>
+                        <td className="r"><span className="li-unit">{fmt(l.unit)}</span></td>
+                        <td className="r"><span className="li-amt">{fmt(l.amount)}</span></td>
+                        <td>{hasSplits ? <span className="li-glsplit"><Icon name="git-fork" size={12} />Split</span> : <GLDropdown value={l.gl} onChange={(g) => setGL(l.id, g)} />}</td>
+                        <td><span className={'li-split' + (splits.has(l.id) || hasSplits ? ' on' : '')} title="Split across GL accounts" onClick={() => toggleSplit(l.id)}><Icon name="split" size={14} /></span></td>
+                      </tr>
+                      {lineSplits.map((s, i) => (
+                        <tr className="li-splitrow" key={`${l.id}-s${i}`}>
+                          <td colSpan={4}>
+                            <div className="li-split-line"><Icon name="corner-down-right" size={13} className="li-split-arrow" /><span className="li-split-gl">{s.gl}</span></div>
+                          </td>
+                          <td className="r"><span className="li-split-amt">{fmt(s.amount)}</span></td>
+                          <td />
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
             <div className="li-tot">
