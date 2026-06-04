@@ -38,3 +38,84 @@ jobs:
           # the production build never executes a query. A well-formed dummy URL
           # just satisfies the db client's connection-string check.
           DATABASE_URL: postgresql://user:password@localhost:5432/settle?sslmode=require
+
+  unit:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests (Vitest)
+        run: npm run test
+
+  e2e:
+    name: e2e tests
+    runs-on: ubuntu-latest
+    env:
+      # The app driver reaches Postgres through the Neon HTTP proxy on :4444;
+      # drizzle-kit reaches Postgres directly on :5432. Both via db.localtest.me.
+      DATABASE_URL: postgres://postgres:postgres@db.localtest.me:5432/main
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # localtest.me resolves to 127.0.0.1 publicly, but pin it so the run never
+      # depends on external DNS.
+      - name: Map db.localtest.me to localhost
+        run: echo "127.0.0.1 db.localtest.me" | sudo tee -a /etc/hosts
+
+      # Postgres + Neon HTTP proxy. The app's @neondatabase/serverless driver
+      # speaks HTTP, not the Postgres wire protocol, so a plain Postgres isn't
+      # enough — the proxy bridges them. Every run gets a fresh, real database.
+      - name: Start Postgres + Neon HTTP proxy
+        run: docker compose -f docker-compose.test.yml up -d --wait
+
+      - name: Wait for the Neon proxy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://db.localtest.me:4444/; then
+              echo "proxy is accepting connections"; exit 0
+            fi
+            echo "waiting for the proxy ($i/30)…"; sleep 2
+          done
+          echo "proxy did not come up in time" >&2; exit 1
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # drizzle-kit talks the Postgres wire protocol directly (not via the proxy)
+      # to create the schema in the fresh, empty database.
+      - name: Push schema
+        run: npm run db:push
+
+      - name: Seed demo data
+        run: npm run db:seed
+
+      - name: Build
+        run: npm run build
+
+      - name: Run e2e tests (Playwright)
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
