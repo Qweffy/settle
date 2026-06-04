@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
+import { bulkAdvance, type BulkAction } from '@/lib/actions/bills';
 import {
   FILTERS,
   STATUS,
@@ -135,8 +136,23 @@ export function BillsView({ data }: { data: BillsData }) {
       return n;
     });
 
-  const doBulk = (label: string) => {
-    setToast(`${label} · ${selRows.length} bill${selRows.length > 1 ? 's' : ''}`);
+  const [bulkBusy, startBulk] = useTransition();
+  const bulkAct = (action: BulkAction, verb: string) => {
+    const ids = [...sel];
+    startBulk(async () => {
+      const res = await bulkAdvance(ids, action);
+      setToast(
+        res.done > 0
+          ? `${verb} ${res.done} bill${res.done > 1 ? 's' : ''}${res.skipped > 0 ? ` · ${res.skipped} not eligible` : ''}`
+          : `Nothing eligible in selection · ${res.skipped} skipped`,
+      );
+      clearSel();
+      router.refresh();
+      setTimeout(() => setToast(null), 3200);
+    });
+  };
+  const exportCsv = () => {
+    setToast(`Exported ${selRows.length} bill${selRows.length > 1 ? 's' : ''} to CSV`);
     clearSel();
     setTimeout(() => setToast(null), 2600);
   };
@@ -321,19 +337,19 @@ export function BillsView({ data }: { data: BillsData }) {
             </span>
             <span className="bb-sum">· {fmt(selSum)}</span>
             <span className="bb-div" />
-            <button className="bb-act primary" onClick={() => doBulk('Approved')}>
+            <button className="bb-act" onClick={() => bulkAct('submit', 'Submitted')} disabled={bulkBusy}>
+              <Icon name="send" size={14} />Submit
+            </button>
+            <button className="bb-act primary" onClick={() => bulkAct('approve', 'Approved')} disabled={bulkBusy}>
               <Icon name="check-circle-2" size={14} />Approve
             </button>
-            <button className="bb-act" onClick={() => doBulk('Scheduled')}>
+            <button className="bb-act" onClick={() => bulkAct('schedule', 'Scheduled')} disabled={bulkBusy}>
               <Icon name="calendar-clock" size={14} />Schedule
             </button>
-            <button className="bb-act" onClick={() => doBulk('Coding updated for')}>
-              <Icon name="tag" size={14} />Edit coding
+            <button className="bb-act" onClick={() => bulkAct('pay', 'Paid')} disabled={bulkBusy}>
+              <Icon name="banknote" size={14} />Mark paid
             </button>
-            <button className="bb-act" onClick={() => doBulk('Reminder sent for')}>
-              <Icon name="bell" size={14} />Remind
-            </button>
-            <button className="bb-act" onClick={() => doBulk('Exported')}>
+            <button className="bb-act" onClick={exportCsv} disabled={bulkBusy}>
               <Icon name="download" size={14} />Export
             </button>
             <span className="bb-div" />

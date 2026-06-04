@@ -340,3 +340,50 @@ export async function updateBill(
   revalidateAll();
   return billId;
 }
+
+export type BulkAction = 'submit' | 'approve' | 'schedule' | 'pay';
+
+// Apply one lifecycle transition to many bills at once, skipping any that aren't
+// in the right starting state. Returns how many advanced vs were skipped.
+export async function bulkAdvance(ids: string[], action: BulkAction): Promise<{ done: number; skipped: number }> {
+  const actor = await getCurrentUserId();
+  const now = new Date();
+  let done = 0;
+  let skipped = 0;
+
+  for (const id of ids) {
+    const b = await loadBill(id);
+    if (action === 'submit' && b.status === 'draft') {
+      await db.update(bills).set({ status: 'pending_approval', submittedAt: now, updatedAt: now }).where(eq(bills.id, id));
+      await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'submit' });
+      await logActivity(b.orgId, id, actor, 'submitted', 'submitted for approval', null);
+      done++;
+    } else if (action === 'approve' && b.status === 'pending_approval') {
+      await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: now, updatedAt: now }).where(eq(bills.id, id));
+      await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'approve' });
+      await logActivity(b.orgId, id, actor, 'approved', 'approved', b.totalCents);
+      done++;
+    } else if (action === 'schedule' && b.status === 'approved') {
+      const when = new Date(now.getTime() + 5 * 86_400_000);
+      const [vendor] = await db.select().from(vendors).where(eq(vendors.id, b.vendorId));
+      const method = (vendor?.defaultMethod ?? 'ach') as PaymentMethod;
+      await db.update(bills).set({ status: 'scheduled', scheduledPayDate: when, updatedAt: now }).where(eq(bills.id, id));
+      await db.insert(payments).values({
+        id: rid('pay'), billId: id, amountCents: b.totalCents, method, payDate: when,
+        status: 'scheduled', referenceNumber: `${method.toUpperCase()}-${b.invoiceNumber}`, createdBy: actor,
+      });
+      await logActivity(b.orgId, id, actor, 'scheduled', 'scheduled', b.totalCents);
+      done++;
+    } else if (action === 'pay' && b.status === 'scheduled') {
+      await db.update(bills).set({ status: 'paid', paidAt: now, updatedAt: now }).where(eq(bills.id, id));
+      await db.update(payments).set({ status: 'paid' }).where(eq(payments.billId, id));
+      await logActivity(b.orgId, id, actor, 'paid', 'marked paid', b.totalCents);
+      done++;
+    } else {
+      skipped++;
+    }
+  }
+
+  revalidateAll();
+  return { done, skipped };
+}
