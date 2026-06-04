@@ -97,6 +97,10 @@
   .nb-dupe-ic { color: var(--review-ink); flex-shrink: 0; width: 16px; height: 16px; }
   .nb-dupe-text { font: 500 12.5px var(--font-ui); color: var(--review-ink); line-height: 1.45; }
   .nb-dupe-text b { font-weight: 700; }
+  /* server error (e.g. the not-editable guard) — red */
+  .nb-error { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--failed-bg); border: 1px solid color-mix(in srgb, var(--failed-solid) 30%, transparent); border-radius: 10px; }
+  .nb-error-ic { color: var(--failed-ink); flex-shrink: 0; width: 16px; height: 16px; }
+  .nb-error-text { font: 500 12.5px var(--font-ui); color: var(--failed-ink); line-height: 1.45; }
 
   /* actions */
   .nb-actions { display: flex; align-items: center; gap: 12px; padding: 2px 2px; }

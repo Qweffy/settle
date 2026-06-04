@@ -5,10 +5,22 @@ import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, lineItemSplits, vendors, users } from '@/db/schema';
-import { assertTransition, type BillLifecycle } from '@/lib/status';
+import { assertTransition, canTransition, isEditable, type BillLifecycle } from '@/lib/status';
 import type { OcrExtraction, OcrFlag } from '@/lib/ocr';
 import { DEMO_ORG } from '@/lib/demo';
 import { requiredApproval, roleSatisfies, roleLabel } from '@/lib/approval-rules';
+import { ok, err, type ActionResult } from '@/lib/result';
+import {
+  parseOrThrow,
+  parseOrResult,
+  idSchema,
+  createBillSchema,
+  updateBillSchema,
+  schedulePaymentSchema,
+  addCommentSchema,
+  bulkAdvanceSchema,
+  importBillsSchema,
+} from '@/lib/validation';
 import { getCurrentUserId } from './session';
 
 type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
@@ -23,8 +35,11 @@ function revalidateAll() {
 }
 
 async function loadBill(billId: string) {
-  const [b] = await db.select().from(bills).where(eq(bills.id, billId));
-  if (!b) throw new Error(`Bill not found: ${billId}`);
+  // Bound + trim the id before it reaches the query (defense in depth — Drizzle
+  // already parameterizes `eq`, so this is validation, not injection defense).
+  const id = parseOrThrow(idSchema, billId);
+  const [b] = await db.select().from(bills).where(eq(bills.id, id));
+  if (!b) throw new Error(`Bill not found: ${id}`);
   return b;
 }
 
@@ -79,22 +94,25 @@ export async function submitBill(billId: string) {
   revalidateAll();
 }
 
-export async function approveBill(billId: string) {
+export async function approveBill(billId: string): Promise<ActionResult<void>> {
   const b = await loadBill(billId);
   assertTransition(b.status as BillLifecycle, 'approved');
   const actor = await getCurrentUserId();
   // Approval-rules gate: large bills require a more senior role to sign off.
+  // Returned (not thrown) so the gate message survives the prod build and
+  // reaches the user.
   const gate = requiredApproval(b.totalCents);
   if (gate) {
     const actorRole = await loadActorRole(actor);
     if (!roleSatisfies(actorRole, gate.requiredRole)) {
-      throw new Error(`This bill needs ${roleLabel(gate.requiredRole)} approval`);
+      return err(`This bill needs ${roleLabel(gate.requiredRole)} approval`);
     }
   }
   await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: new Date(), updatedAt: new Date() }).where(eq(bills.id, billId));
   await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'approve' });
   await logActivity(b.orgId, billId, actor, 'approved', 'approved', b.totalCents);
   revalidateAll();
+  return ok(undefined);
 }
 
 export async function rejectBill(billId: string, note?: string) {
@@ -143,6 +161,7 @@ export async function checkDuplicate(
 }
 
 export async function addComment(billId: string, body: string, mentions: string[] = []) {
+  parseOrThrow(addCommentSchema, { billId, body, mentions });
   const b = await loadBill(billId);
   const actor = await getCurrentUserId();
   await db.insert(billComments).values({ id: rid('cmt'), billId, authorId: actor, body, mentions });
@@ -152,6 +171,7 @@ export async function addComment(billId: string, body: string, mentions: string[
 }
 
 export async function resolveFlag(flagId: string, status: 'accepted' | 'dismissed') {
+  parseOrThrow(idSchema, flagId);
   const [flag] = await db.select().from(billFlags).where(eq(billFlags.id, flagId));
   if (!flag) throw new Error(`Flag not found: ${flagId}`);
   await db.update(billFlags).set({ status }).where(eq(billFlags.id, flagId));
@@ -163,6 +183,7 @@ export async function resolveFlag(flagId: string, status: 'accepted' | 'dismisse
 }
 
 export async function schedulePayment(billId: string, method: PaymentMethod, payDate: string) {
+  parseOrThrow(schedulePaymentSchema, { billId, method, payDate });
   const b = await loadBill(billId);
   assertTransition(b.status as BillLifecycle, 'scheduled');
   const actor = await getCurrentUserId();
@@ -194,6 +215,7 @@ export async function createBillFromCapture(
   flags: OcrFlag[],
   vendorId: string,
 ): Promise<string> {
+  parseOrThrow(idSchema, vendorId);
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId));
   if (!vendor) throw new Error(`Vendor not found: ${vendorId}`);
   const actor = await getCurrentUserId();
@@ -297,9 +319,11 @@ export async function createBill(input: {
   memo: string | null;
   taxCents: number;
   lineItems: NewBillLine[];
-}): Promise<string> {
+}): Promise<ActionResult<string>> {
+  const parsed = parseOrResult(createBillSchema, input);
+  if (!parsed.ok) return parsed;
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
-  if (!vendor) throw new Error(`Vendor not found: ${input.vendorId}`);
+  if (!vendor) return err('Vendor not found.');
   const actor = await getCurrentUserId();
   const billId = rid('b');
   const now = new Date();
@@ -357,7 +381,7 @@ export async function createBill(input: {
   await logActivity(vendor.orgId, billId, actor, 'created', 'created this bill manually', totalCents);
   await logActivity(vendor.orgId, billId, actor, 'submitted', 'submitted for approval', null);
   revalidateAll();
-  return billId;
+  return ok(billId);
 }
 
 // Update an existing bill's fields + line items (from the Edit form).
@@ -372,10 +396,17 @@ export async function updateBill(
     taxCents: number;
     lineItems: NewBillLine[];
   },
-): Promise<string> {
+): Promise<ActionResult<string>> {
+  const parsed = parseOrResult(updateBillSchema, input);
+  if (!parsed.ok) return parsed;
   const b = await loadBill(billId);
+  // State guard: only pre-decision bills are editable. Past approval, editing
+  // would silently invalidate an approval or a queued payment.
+  if (!isEditable(b.status as BillLifecycle)) {
+    return err(`This bill can't be edited once it's ${DUPLICATE_STATUS_LABEL[b.status] ?? b.status}.`);
+  }
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
-  if (!vendor) throw new Error(`Vendor not found: ${input.vendorId}`);
+  if (!vendor) return err('Vendor not found.');
   const actor = await getCurrentUserId();
 
   const parseDate = (s: string | null): Date | null => {
@@ -426,53 +457,77 @@ export async function updateBill(
 
   await logActivity(b.orgId, billId, actor, 'edited', 'edited this bill', totalCents);
   revalidateAll();
-  return billId;
+  return ok(billId);
 }
 
 export type BulkAction = 'submit' | 'approve' | 'schedule' | 'pay';
 
+// Each bulk action's target lifecycle status, so eligibility is checked against
+// the state machine rather than a hardcoded status condition.
+const BULK_TARGET: Record<BulkAction, BillLifecycle> = {
+  submit: 'pending_approval',
+  approve: 'approved',
+  schedule: 'scheduled',
+  pay: 'paid',
+};
+
 // Apply one lifecycle transition to many bills at once, skipping any that aren't
-// in the right starting state. Returns how many advanced vs were skipped.
+// eligible per ALLOWED_TRANSITIONS (plus the approval gate for 'approve').
+// Returns how many advanced vs were skipped.
 export async function bulkAdvance(ids: string[], action: BulkAction): Promise<{ done: number; skipped: number }> {
+  const parsed = parseOrThrow(bulkAdvanceSchema, { ids, action });
   const actor = await getCurrentUserId();
   // Resolve the actor's role once — the approval gate applies to every bill in
   // an 'approve' batch, skipping any the actor isn't senior enough to sign off.
-  const actorRole = action === 'approve' ? await loadActorRole(actor) : 'clerk';
+  const actorRole = parsed.action === 'approve' ? await loadActorRole(actor) : 'clerk';
   const now = new Date();
+  const target = BULK_TARGET[parsed.action];
   let done = 0;
   let skipped = 0;
 
-  for (const id of ids) {
+  for (const id of parsed.ids) {
     const b = await loadBill(id);
-    if (action === 'submit' && b.status === 'draft') {
-      await db.update(bills).set({ status: 'pending_approval', submittedAt: now, updatedAt: now }).where(eq(bills.id, id));
-      await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'submit' });
-      await logActivity(b.orgId, id, actor, 'submitted', 'submitted for approval', null);
-      done++;
-    } else if (action === 'approve' && b.status === 'pending_approval' && roleSatisfies(actorRole, requiredApproval(b.totalCents)?.requiredRole ?? 'approver')) {
-      await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: now, updatedAt: now }).where(eq(bills.id, id));
-      await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'approve' });
-      await logActivity(b.orgId, id, actor, 'approved', 'approved', b.totalCents);
-      done++;
-    } else if (action === 'schedule' && b.status === 'approved') {
-      const when = new Date(now.getTime() + 5 * 86_400_000);
-      const [vendor] = await db.select().from(vendors).where(eq(vendors.id, b.vendorId));
-      const method = (vendor?.defaultMethod ?? 'ach') as PaymentMethod;
-      await db.update(bills).set({ status: 'scheduled', scheduledPayDate: when, updatedAt: now }).where(eq(bills.id, id));
-      await db.insert(payments).values({
-        id: rid('pay'), billId: id, amountCents: b.totalCents, method, payDate: when,
-        status: 'scheduled', referenceNumber: `${method.toUpperCase()}-${b.invoiceNumber}`, createdBy: actor,
-      });
-      await logActivity(b.orgId, id, actor, 'scheduled', 'scheduled', b.totalCents);
-      done++;
-    } else if (action === 'pay' && b.status === 'scheduled') {
-      await db.update(bills).set({ status: 'paid', paidAt: now, updatedAt: now }).where(eq(bills.id, id));
-      await db.update(payments).set({ status: 'paid' }).where(eq(payments.billId, id));
-      await logActivity(b.orgId, id, actor, 'paid', 'marked paid', b.totalCents);
-      done++;
-    } else {
+    // Eligibility is driven by the state machine (can't drift from
+    // ALLOWED_TRANSITIONS); the approval gate is an extra predicate on 'approve'.
+    const eligible =
+      canTransition(b.status as BillLifecycle, target) &&
+      (parsed.action !== 'approve' ||
+        roleSatisfies(actorRole, requiredApproval(b.totalCents)?.requiredRole ?? 'approver'));
+    if (!eligible) {
       skipped++;
+      continue;
     }
+
+    switch (parsed.action) {
+      case 'submit':
+        await db.update(bills).set({ status: 'pending_approval', submittedAt: now, updatedAt: now }).where(eq(bills.id, id));
+        await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'submit' });
+        await logActivity(b.orgId, id, actor, 'submitted', 'submitted for approval', null);
+        break;
+      case 'approve':
+        await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: now, updatedAt: now }).where(eq(bills.id, id));
+        await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'approve' });
+        await logActivity(b.orgId, id, actor, 'approved', 'approved', b.totalCents);
+        break;
+      case 'schedule': {
+        const when = new Date(now.getTime() + 5 * 86_400_000);
+        const [vendor] = await db.select().from(vendors).where(eq(vendors.id, b.vendorId));
+        const method = (vendor?.defaultMethod ?? 'ach') as PaymentMethod;
+        await db.update(bills).set({ status: 'scheduled', scheduledPayDate: when, updatedAt: now }).where(eq(bills.id, id));
+        await db.insert(payments).values({
+          id: rid('pay'), billId: id, amountCents: b.totalCents, method, payDate: when,
+          status: 'scheduled', referenceNumber: `${method.toUpperCase()}-${b.invoiceNumber}`, createdBy: actor,
+        });
+        await logActivity(b.orgId, id, actor, 'scheduled', 'scheduled', b.totalCents);
+        break;
+      }
+      case 'pay':
+        await db.update(bills).set({ status: 'paid', paidAt: now, updatedAt: now }).where(eq(bills.id, id));
+        await db.update(payments).set({ status: 'paid' }).where(eq(payments.billId, id));
+        await logActivity(b.orgId, id, actor, 'paid', 'marked paid', b.totalCents);
+        break;
+    }
+    done++;
   }
 
   revalidateAll();
@@ -494,6 +549,7 @@ export type ImportRow = {
 // Rows with an unknown vendor, blank invoice #, or non-positive amount are
 // skipped. Returns how many were created vs skipped.
 export async function importBills(rows: ImportRow[]): Promise<{ created: number; skipped: number }> {
+  parseOrThrow(importBillsSchema, rows);
   const actor = await getCurrentUserId();
   const orgVendors = await db.select().from(vendors).where(eq(vendors.orgId, DEMO_ORG));
   const byName = new Map(orgVendors.map((v) => [v.name.trim().toLowerCase(), v]));

@@ -3,6 +3,8 @@ import {
   ALLOWED_TRANSITIONS,
   canTransition,
   assertTransition,
+  isEditable,
+  EDITABLE_STATUSES,
   deriveDisplayStatus,
   DUE_SOON_DAYS,
 } from '@/lib/status';
@@ -33,6 +35,22 @@ describe('canTransition / assertTransition (lifecycle state machine)', () => {
   it('assertTransition throws on illegal, is silent on legal', () => {
     expect(() => assertTransition('draft', 'paid')).toThrow(/Illegal bill transition/);
     expect(() => assertTransition('pending_approval', 'approved')).not.toThrow();
+  });
+});
+
+describe('isEditable (edit guard)', () => {
+  it('only pre-decision bills are editable', () => {
+    expect(isEditable('draft')).toBe(true);
+    expect(isEditable('pending_approval')).toBe(true);
+  });
+  it('post-decision and terminal bills are not editable', () => {
+    for (const s of ['approved', 'scheduled', 'paid', 'rejected', 'void'] as const) {
+      expect(isEditable(s)).toBe(false);
+    }
+  });
+  it('EDITABLE_STATUSES excludes the terminal states', () => {
+    expect(EDITABLE_STATUSES).not.toContain('paid');
+    expect(EDITABLE_STATUSES).not.toContain('void');
   });
 });
 

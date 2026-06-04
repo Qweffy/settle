@@ -215,15 +215,20 @@ export function BillsView({ data }: { data: BillsData }) {
   const bulkAct = (action: BulkAction, verb: string) => {
     const ids = [...sel];
     startBulk(async () => {
-      const res = await bulkAdvance(ids, action);
-      setToast(
-        res.done > 0
-          ? `${verb} ${res.done} bill${res.done > 1 ? 's' : ''}${res.skipped > 0 ? ` · ${res.skipped} not eligible` : ''}`
-          : `Nothing eligible in selection · ${res.skipped} skipped`,
-      );
-      clearSel();
-      router.refresh();
-      setTimeout(() => setToast(null), 3200);
+      try {
+        const res = await bulkAdvance(ids, action);
+        setToast(
+          res.done > 0
+            ? `${verb} ${res.done} bill${res.done > 1 ? 's' : ''}${res.skipped > 0 ? ` · ${res.skipped} not eligible` : ''}`
+            : `Nothing eligible in selection · ${res.skipped} skipped`,
+        );
+      } catch {
+        setToast('Something went wrong — please try again');
+      } finally {
+        clearSel();
+        router.refresh();
+        setTimeout(() => setToast(null), 3200);
+      }
     });
   };
   const exportCsv = () => {

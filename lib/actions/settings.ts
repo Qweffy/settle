@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { glAccounts, glType } from '@/db/schema';
 import { DEMO_ORG } from '@/lib/demo';
+import { parseOrThrow, glAccountInputSchema, idSchema } from '@/lib/validation';
 
 type GlTypeValue = (typeof glType.enumValues)[number];
 
@@ -24,6 +25,7 @@ export type GlAccountInput = {
 };
 
 export async function createGlAccount(input: GlAccountInput): Promise<string> {
+  parseOrThrow(glAccountInputSchema, input);
   const id = rid('gl');
   await db.insert(glAccounts).values({
     id,
@@ -37,6 +39,8 @@ export async function createGlAccount(input: GlAccountInput): Promise<string> {
 }
 
 export async function updateGlAccount(id: string, input: GlAccountInput): Promise<string> {
+  parseOrThrow(idSchema, id);
+  parseOrThrow(glAccountInputSchema, input);
   await db
     .update(glAccounts)
     .set({

@@ -26,3 +26,11 @@ test('approval gate: a bill over $50k requires a Controller', async ({ page }) =
   await page.goto('/bills/b-wex-0529');
   await expect(page.getByRole('button', { name: 'Approve' })).toBeEnabled();
 });
+
+test('approving the >$50k bill from the queue surfaces the gate message', async ({ page }) => {
+  // Default actor is the AP Clerk. The server returns the gate message as data,
+  // so it reaches the toast in the prod build (a thrown error would be masked).
+  await page.goto('/approvals');
+  await page.locator('.arow').filter({ hasText: 'WEX Fleet Fuel' }).locator('.act-btn.approve').click();
+  await expect(page.locator('.toast')).toContainText(/needs Controller approval/i, { timeout: 10_000 });
+});

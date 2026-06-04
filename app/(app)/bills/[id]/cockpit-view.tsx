@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import { approveBill, rejectBill, schedulePayment, resolveFlag, addComment as addCommentAction } from '@/lib/actions/bills';
+import type { ActionResult } from '@/lib/result';
 import {
   GL_OPTIONS,
   SEV,
@@ -531,11 +532,21 @@ export function CockpitView({ data }: { data: CockpitData }) {
 
   // Run a bill action with optimistic feedback. The server action is the source
   // of truth: refresh on success, surface the error (and run `revert`) on failure.
-  const run = (label: string, action: () => Promise<void>, revert?: () => void) => {
+  const run = (
+    label: string,
+    action: () => Promise<void | ActionResult<unknown>>,
+    revert?: () => void,
+  ) => {
     showToast(label);
     startTransition(async () => {
       try {
-        await action();
+        const res = await action();
+        // Business errors (the approval gate) come back as data, not a throw.
+        if (res && res.ok === false) {
+          revert?.();
+          showToast(res.error);
+          return;
+        }
         router.refresh();
       } catch {
         revert?.();

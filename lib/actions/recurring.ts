@@ -13,6 +13,7 @@ import {
   vendors,
 } from '@/db/schema';
 import { getCurrentUserId } from './session';
+import { parseOrThrow, idSchema } from '@/lib/validation';
 
 const rid = (p: string) => `${p}-${randomUUID()}`;
 
@@ -39,6 +40,7 @@ function yyyymm(d: Date): string {
 // approval queue, then roll the schedule forward to its next run. Returns the
 // new bill id so the client can route to its cockpit.
 export async function generateBillFromTemplate(templateId: string): Promise<string> {
+  parseOrThrow(idSchema, templateId);
   const [template] = await db
     .select()
     .from(recurringBillTemplates)

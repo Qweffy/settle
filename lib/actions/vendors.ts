@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { vendors, paymentTerms, paymentMethod } from '@/db/schema';
 import { DEMO_ORG } from '@/lib/demo';
+import { parseOrThrow, vendorInputSchema, idSchema } from '@/lib/validation';
 
 type PaymentTermsValue = (typeof paymentTerms.enumValues)[number];
 type PaymentMethodValue = (typeof paymentMethod.enumValues)[number];
@@ -45,6 +46,7 @@ type VendorInput = {
 };
 
 export async function createVendor(input: VendorInput): Promise<string> {
+  parseOrThrow(vendorInputSchema, input);
   const vendorId = rid('v');
   await db.insert(vendors).values({
     id: vendorId,
@@ -66,6 +68,8 @@ export async function createVendor(input: VendorInput): Promise<string> {
 }
 
 export async function updateVendor(vendorId: string, input: VendorInput): Promise<string> {
+  parseOrThrow(idSchema, vendorId);
+  parseOrThrow(vendorInputSchema, input);
   await db
     .update(vendors)
     .set({

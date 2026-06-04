@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import { approveBill, rejectBill } from '@/lib/actions/bills';
+import type { ActionResult } from '@/lib/result';
 import { GROUPS, SEV, type ApprovalBill } from '@/lib/data/approvals';
 import type { ApprovalsData } from '@/lib/queries/approvals';
 import './approvals.css';
@@ -270,7 +271,7 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
   // restore the rows and surface the error.
   const runWorkflow = (
     ids: string[],
-    action: (id: string) => Promise<void>,
+    action: (id: string) => Promise<void | ActionResult<unknown>>,
     okToast: string,
     failVerb: string,
   ) => {
@@ -280,7 +281,15 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
     removeBills(ids);
     startTransition(async () => {
       try {
-        await Promise.all(ids.map((id) => action(id)));
+        const results = await Promise.all(ids.map((id) => action(id)));
+        // If any bill returned a business error (e.g. the approval gate), undo
+        // the optimistic removal and surface that real message.
+        const failed = results.find((r) => r && r.ok === false);
+        if (failed && failed.ok === false) {
+          restoreBills(affected);
+          showToast(failed.error);
+          return;
+        }
         router.refresh();
       } catch {
         restoreBills(affected);

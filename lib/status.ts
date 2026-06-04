@@ -30,6 +30,14 @@ export function assertTransition(from: BillLifecycle, to: BillLifecycle): void {
   }
 }
 
+// Statuses whose fields may still be edited. Past approval, editing would
+// silently invalidate an approval or a queued payment, and paid/rejected/void
+// are effectively final — so only pre-decision bills are editable.
+export const EDITABLE_STATUSES: BillLifecycle[] = ['draft', 'pending_approval'];
+export function isEditable(status: BillLifecycle): boolean {
+  return EDITABLE_STATUSES.includes(status);
+}
+
 export const DUE_SOON_DAYS = 7;
 const DAY_MS = 86_400_000;
 

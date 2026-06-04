@@ -35,6 +35,7 @@ export function BillForm({
   const [memo, setMemo] = useState(initial?.memo ?? '');
   const [tax, setTax] = useState(initial?.tax ?? '');
   const [dupe, setDupe] = useState<{ invoiceNumber: string; amount: number; statusLabel: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>(() =>
     initial && initial.lines.length > 0
       ? initial.lines.map((l, i) => ({
@@ -92,6 +93,7 @@ export function BillForm({
 
   const handleSave = () => {
     if (!canSave) return;
+    setError(null);
     startSave(async () => {
       const payload = {
         vendorId,
@@ -114,8 +116,12 @@ export function BillForm({
           };
         }),
       };
-      const id = editId ? await updateBill(editId, payload) : await createBill(payload);
-      router.push(`/bills/${id}`);
+      const res = editId ? await updateBill(editId, payload) : await createBill(payload);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.push(`/bills/${res.data}`);
     });
   };
 
@@ -289,6 +295,14 @@ export function BillForm({
               <span className="nb-dupe-text">
                 <b>Heads up</b> — {dupe.invoiceNumber} from this vendor already exists ({fmt(dupe.amount)} · {dupe.statusLabel}).
               </span>
+            </div>
+          )}
+
+          {/* Server error (e.g. the not-editable guard or a validation failure) */}
+          {error && (
+            <div className="nb-error" role="alert">
+              <Icon name="alert-triangle" size={16} className="nb-error-ic" />
+              <span className="nb-error-text">{error}</span>
             </div>
           )}
 
