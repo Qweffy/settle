@@ -21,6 +21,8 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **Invoice‑centric cockpit** — image + coding + a shared, timestamped, auditable comment thread on one screen (the Stampli pattern), so the "why is this surcharge higher?" conversation lives on the bill instead of in scattered email.
 - **AP controls** — code-side **duplicate detection** (warns when the same vendor + invoice # arrives twice) and an **approval-rules engine** that routes large bills to a senior role (over $10k → Approver, over $50k → Controller), enforced server-side and surfaced as a gate in the cockpit.
 
+Beyond the core, the build also ships **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts), a **Settings** page (chart of accounts + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
+
 ---
 
 ## Workflows I prioritized (and why)
@@ -57,7 +59,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **2‑way accounting sync (QuickBooks/NetSuite)** — realistic in Ramp but not meaningfully mockable in the timebox; the activity feed shows a representative "synced from QuickBooks" event.
 - **Global/FX mass payments + a tax engine (1099/W‑8/VAT)** — deliberately dropped after the competitor benchmark: overkill for a US‑domestic hauler.
 - **Historical series for scorecard deltas/sparklines** — the scorecard *values* are real (live DB aggregates); the small delta % and sparkline are illustrative, since there's no time‑series table yet.
-- **Recurring bills, line-item splits & a Settings home** — vendors carry a `cadence` but recurring bills aren't auto-generated yet; splitting a line across GL accounts and a `/settings` page (GL accounts + rules, today a 404) are the next roadmap items. (Bills *and* vendors both ship full create/edit forms + dynamic `/bills/[id]` and `/vendors/[id]` detail routes — captured/created records route straight to their detail.)
+- **CSV import is a stub** — the bills *Import* button parses and counts a file's rows but doesn't create bills yet, and *Saved views* is a placeholder. Everything else from the plan shipped — recurring schedules, line-item splits, a Settings page, bulk actions, duplicate detection, the approval-rules engine, and keyboard shortcuts.
 
 ---
 
