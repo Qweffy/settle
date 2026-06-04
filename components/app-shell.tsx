@@ -211,7 +211,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     else if (item?.type === 'action') {
       if (item.id === 'newbill') router.push('/bills/new');
       else if (item.id === 'record') router.push('/payments');
-      else if (item.id === 'vendor') router.push('/vendors');
+      else if (item.id === 'vendor') router.push('/vendors/new');
     }
     onClose();
   };

@@ -54,15 +54,16 @@ export type VendorData = {
   history: HistoryBill[];
 };
 
-// Vendor detail is wired to Regional Landfill Authority — the /vendors route has no [id] yet.
-export async function getVendorData(vendorId = 'v-landfill'): Promise<VendorData> {
+// Loads a single vendor's detail (header, scorecards, spend trend, bills history).
+// Returns null when the vendor doesn't exist so the route can render notFound().
+export async function getVendorData(vendorId: string): Promise<VendorData | null> {
   const now = DEMO_NOW;
 
   const row = await db.query.vendors.findFirst({
     where: eq(vendors.id, vendorId),
     with: { bills: { with: { flags: true } } },
   });
-  if (!row) throw new Error(`Vendor not found: ${vendorId}`);
+  if (!row) return null;
 
   const bills = [...row.bills].sort(
     (a, b) => (b.issueDate?.getTime() ?? 0) - (a.issueDate?.getTime() ?? 0),
@@ -75,7 +76,7 @@ export async function getVendorData(vendorId = 'v-landfill'): Promise<VendorData
   const vendor: Vendor = {
     name: row.name,
     mono: row.mono,
-    category: row.defaultGl ? `${row.defaultGl} · Disposal` : 'Uncategorized',
+    category: row.defaultGl ?? 'Uncategorized',
     vendorId: row.id,
     terms: TERMS_LABEL[row.terms] ?? row.terms,
     method: METHOD_LABEL[row.defaultMethod] ?? row.defaultMethod,

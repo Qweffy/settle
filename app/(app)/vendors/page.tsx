@@ -1,9 +1,9 @@
-import { getVendorData } from '@/lib/queries/vendor';
-import { VendorView } from './vendor-view';
+import { getVendorsList } from '@/lib/queries/vendors-list';
+import { VendorsListView } from './vendors-list-view';
 
 export const dynamic = 'force-dynamic';
 
-export default async function VendorPage() {
-  const data = await getVendorData();
-  return <VendorView data={data} />;
+export default async function VendorsPage() {
+  const data = await getVendorsList();
+  return <VendorsListView data={data} />;
 }

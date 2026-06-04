@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import { STATUS, type HistoryStatus } from '@/lib/data/vendor';
@@ -31,11 +32,11 @@ function TrendChart({ data, avg }: { data: VendorData['trend']; avg: number }) {
   return (
     <div className="card">
       <div className="card-h">
-        <span className="ct">Tipping-fee surcharge trend</span>
+        <span className="ct">Monthly spend</span>
         <span className="csub">· last 6 months</span>
         <span className="ch-spacer" />
         <span className="legend">
-          <span className="lg"><span className="ln" style={{ background: 'var(--primary)' }} />Surcharge</span>
+          <span className="lg"><span className="ln" style={{ background: 'var(--primary)' }} />Spend</span>
           <span className="lg"><span className="ln dash" />6-mo avg</span>
         </span>
       </div>
@@ -96,7 +97,7 @@ function InfoCard({ v }: { v: VendorData['vendor'] }) {
   ];
   return (
     <div className="card">
-      <div className="card-h"><span className="ct">Vendor info</span><span className="ch-spacer" /><span className="haction">Edit</span></div>
+      <div className="card-h"><span className="ct">Vendor info</span><span className="ch-spacer" /><Link href={`/vendors/${v.vendorId}/edit`} className="haction">Edit</Link></div>
       <div className="info-list">
         {rows.map((r) => (
           <div className="info-row" key={r.l}>
@@ -179,6 +180,7 @@ export function VendorView({ data }: { data: VendorData }) {
               <div className="vh-cat">{v.category} · {v.since}</div>
             </div>
             <div className="vh-actions">
+              <Link href={`/vendors/${v.vendorId}/edit`} className="btn btn-ghost"><Icon name="pencil" size={15} />Edit vendor</Link>
               <button className="btn btn-ghost"><Icon name="file-text" size={15} />Statement</button>
               <button className="btn btn-primary"><Icon name="plus" size={15} />New bill</button>
             </div>

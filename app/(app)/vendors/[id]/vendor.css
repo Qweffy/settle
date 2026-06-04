@@ -82,7 +82,7 @@
   .info-row .iv.mono { font-family: var(--font-mono); }
   .info-row .iact { font: 500 11.5px var(--font-ui); color: var(--fg-2); cursor: pointer; flex-shrink: 0; }
   .info-row .iact:hover { color: var(--primary); }
-  .haction { font: 500 12px var(--font-ui); color: var(--fg-2); cursor: pointer; }
+  .haction { font: 500 12px var(--font-ui); color: var(--fg-2); cursor: pointer; text-decoration: none; }
   .haction:hover { color: var(--primary); }
 
   /* ---- history table ---- */
