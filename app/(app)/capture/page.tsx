@@ -466,7 +466,7 @@ export default function CapturePage() {
         </div>
 
         <div className="top-row">
-          <StageUpload onProcess={process} pending={isPending} />
+          <StageUpload onProcess={handleProcess} pending={isPending} />
           <StageProcessing pending={isPending} />
         </div>
         {/* key remounts the draft so its local state (GL edits, resolved flags)
