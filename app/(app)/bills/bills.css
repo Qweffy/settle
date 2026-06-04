@@ -133,9 +133,7 @@
   .bb-close:hover { background: var(--surface-sunken); color: var(--fg-1); }
   .bb-close .icon { width: 16px; height: 16px; }
 
-  /* toast */
-  .toast { position: absolute; bottom: 18px; right: 24px; z-index: 70; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; box-shadow: var(--shadow-popover); padding: 11px 14px; font: 500 13px var(--font-ui); color: var(--fg-1); animation: bulkUp .16s ease; }
-  .toast .icon { width: 16px; height: 16px; color: var(--paid-solid); }
+  /* toast → shared <Toast> component (app/styles/toast.css) */
 
   /* ============================== SAVED VIEWS */
   .ctrl-badge { font: 600 10.5px var(--font-ui); min-width: 16px; height: 16px; padding: 0 5px; border-radius: var(--radius-full); background: var(--surface-sunken); border: 1px solid var(--border-1); color: var(--fg-2); display: grid; place-items: center; }

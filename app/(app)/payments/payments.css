@@ -148,7 +148,4 @@
 .screen-payments .modal-foot .mf-sub { font: 500 11.5px var(--font-ui); color: var(--fg-3); margin-top: 1px; white-space: nowrap; }
 .screen-payments .modal-foot .mf-spacer { flex: 1; }
 
-/* toast */
-.screen-payments .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 95; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; box-shadow: var(--shadow-modal); padding: 11px 16px; font: 600 13px var(--font-ui); color: var(--fg-1); animation: pay-tup .16s ease; }
-@keyframes pay-tup { from { opacity: 0; transform: translate(-50%, 8px); } }
-.screen-payments .toast .icon { width: 16px; height: 16px; color: var(--paid-solid); }
+/* toast → shared <Toast> component (app/styles/toast.css) */

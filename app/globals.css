@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "./styles/tokens.css";
 @import "./styles/shell.css";
+@import "./styles/error-state.css";
+@import "./styles/toast.css";
 
 /* Base reset (design system) — layered after Tailwind preflight */
 * { box-sizing: border-box; margin: 0; padding: 0; }

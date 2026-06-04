@@ -14,6 +14,7 @@ import {
   type PaymentStatusKey,
 } from '@/lib/data/payments';
 import type { PaymentsData } from '@/lib/queries/payments';
+import { Toast, type ToastData } from '@/components/toast';
 import './payments.css';
 
 type Tab = 'scheduled' | 'paid';
@@ -236,11 +237,11 @@ function ScheduleModal({
 export function PaymentsView({ data }: { data: PaymentsData }) {
   const [tab, setTab] = useState<Tab>('scheduled');
   const [modal, setModal] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [busy, startTransition] = useTransition();
   const router = useRouter();
-  const showToast = (m: string) => {
-    setToast(m);
+  const showToast = (m: string, tone?: ToastData['tone']) => {
+    setToast({ title: m, tone });
     setTimeout(() => setToast(null), 2600);
   };
 
@@ -253,7 +254,7 @@ export function PaymentsView({ data }: { data: PaymentsData }) {
         await action();
         router.refresh();
       } catch {
-        showToast('Something went wrong — please try again');
+        showToast('Something went wrong — please try again', 'red');
       }
     });
   };
@@ -297,7 +298,7 @@ export function PaymentsView({ data }: { data: PaymentsData }) {
       </div>
 
       {modal && data.modal && <ScheduleModal modal={data.modal} busy={busy} onClose={() => setModal(false)} onSchedule={handleSchedule} />}
-      {toast && <div className="toast"><Icon name="check-circle-2" size={16} />{toast}</div>}
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

@@ -174,6 +174,4 @@
   }
 }
 
-/* toast — fixed overlay, rendered outside the screen flow */
-.screen-approvals .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; box-shadow: var(--shadow-modal); padding: 11px 16px; font: 600 13px var(--font-ui); color: var(--fg-1); animation: bup .16s ease; }
-.screen-approvals .toast .icon { width: 16px; height: 16px; color: var(--paid-solid); }
+/* toast → shared <Toast> component (app/styles/toast.css) */

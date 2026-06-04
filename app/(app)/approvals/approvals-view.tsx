@@ -8,6 +8,7 @@ import { approveBill, rejectBill } from '@/lib/actions/bills';
 import type { ActionResult } from '@/lib/result';
 import { GROUPS, SEV, type ApprovalBill } from '@/lib/data/approvals';
 import { Check, type CheckState } from '@/components/check';
+import { Toast, type ToastData } from '@/components/toast';
 import type { ApprovalsData } from '@/lib/queries/approvals';
 import './approvals.css';
 
@@ -180,13 +181,13 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
   const [active, setActive] = useState<string | null>(data.bills[0]?.id ?? null);
   const [sel, setSel] = useState<Set<string>>(() => new Set());
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [scope, setScope] = useState('mine');
   const [, startTransition] = useTransition();
   const router = useRouter();
 
-  const showToast = (m: string) => {
-    setToast(m);
+  const showToast = (m: string, tone?: ToastData['tone']) => {
+    setToast({ title: m, tone });
     setTimeout(() => setToast(null), 2400);
   };
   const liveBills = bills.filter((b) => !removing.has(b.id));
@@ -272,13 +273,13 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
         const failed = results.find((r) => r && r.ok === false);
         if (failed && failed.ok === false) {
           restoreBills(affected);
-          showToast(failed.error);
+          showToast(failed.error, 'red');
           return;
         }
         router.refresh();
       } catch {
         restoreBills(affected);
-        showToast(`Couldn’t ${failVerb} — please try again`);
+        showToast(`Couldn’t ${failVerb} — please try again`, 'red');
       }
     });
   };
@@ -388,7 +389,7 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
         </div>
       )}
 
-      {toast && <div className="toast"><Icon name="check-circle-2" size={16} />{toast}</div>}
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </div>
   );
 }

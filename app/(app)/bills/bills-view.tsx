@@ -17,6 +17,7 @@ import {
 } from '@/lib/data/bills';
 import type { BillsData } from '@/lib/queries/bills';
 import { Check, type CheckState } from '@/components/check';
+import { Toast, type ToastData } from '@/components/toast';
 import './bills.css';
 
 // CSV header → ImportRow field. A few common aliases are accepted per column.
@@ -104,7 +105,7 @@ export function BillsView({ data }: { data: BillsData }) {
   const [activeFilters, setActiveFilters] = useState<Set<string>>(() => new Set());
   const [menu, setMenu] = useState<string | null>(null);
   const [visCols, setVisCols] = useState<Set<string>>(() => new Set(COLS.map((c) => c.id)));
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [viewName, setViewName] = useState('');
   const [importBusy, startImport] = useTransition();
@@ -114,8 +115,8 @@ export function BillsView({ data }: { data: BillsData }) {
     () => new Set(vendorNames.map((n) => n.trim().toLowerCase())),
     [vendorNames],
   );
-  const flash = (msg: string, ms = 2800) => {
-    setToast(msg);
+  const flash = (msg: string, ms = 2800, tone?: ToastData['tone']) => {
+    setToast({ title: msg, tone });
     setTimeout(() => setToast(null), ms);
   };
 
@@ -202,13 +203,15 @@ export function BillsView({ data }: { data: BillsData }) {
     startBulk(async () => {
       try {
         const res = await bulkAdvance(ids, action);
-        setToast(
-          res.done > 0
-            ? `${verb} ${res.done} bill${res.done > 1 ? 's' : ''}${res.skipped > 0 ? ` · ${res.skipped} not eligible` : ''}`
-            : `Nothing eligible in selection · ${res.skipped} skipped`,
-        );
+        setToast({
+          title:
+            res.done > 0
+              ? `${verb} ${res.done} bill${res.done > 1 ? 's' : ''}${res.skipped > 0 ? ` · ${res.skipped} not eligible` : ''}`
+              : `Nothing eligible in selection · ${res.skipped} skipped`,
+          tone: res.done > 0 ? 'neutral' : 'amber',
+        });
       } catch {
-        setToast('Something went wrong — please try again');
+        setToast({ title: 'Something went wrong — please try again', tone: 'red' });
       } finally {
         clearSel();
         router.refresh();
@@ -240,7 +243,7 @@ export function BillsView({ data }: { data: BillsData }) {
     a.remove();
     URL.revokeObjectURL(url);
 
-    setToast(`Exported ${target.length} bill${target.length !== 1 ? 's' : ''} to CSV`);
+    setToast({ title: `Exported ${target.length} bill${target.length !== 1 ? 's' : ''} to CSV` });
     clearSel();
     setTimeout(() => setToast(null), 2600);
   };
@@ -330,7 +333,7 @@ export function BillsView({ data }: { data: BillsData }) {
     startViews(async () => {
       const res = await createSavedView(name, currentConfig());
       if (!res.ok) {
-        flash(res.error);
+        flash(res.error, 3600, 'red');
         return;
       }
       setViewName('');
@@ -644,12 +647,7 @@ export function BillsView({ data }: { data: BillsData }) {
       })()}
 
       {/* toast */}
-      {toast && (
-        <div className="toast">
-          <Icon name="check-circle-2" size={16} />
-          {toast}
-        </div>
-      )}
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
       {/* click-away for the columns menu */}
       {menu && <div style={{ position: 'fixed', inset: 0, zIndex: 55 }} onClick={() => setMenu(null)} />}
