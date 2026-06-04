@@ -2,9 +2,24 @@
 
 [![CI](https://github.com/Qweffy/settle/actions/workflows/ci.yml/badge.svg)](https://github.com/Qweffy/settle/actions/workflows/ci.yml)
 
+**Live demo → [settle-qweffys-projects.vercel.app](https://settle-qweffys-projects.vercel.app)** · deployed on Vercel + Neon, seeded with the Summit Waste demo data.
+
 Settle is a modern **Accounts Payable / Bill Pay** product — where a finance team manages the full life of a vendor bill: **intake → code → approve → schedule → pay**, plus AP aging and an **AI bill review**. It's built in the spirit of Ramp Bill Pay × Stripe Dashboard, and the demo data is themed for a waste‑hauling company (**Summit Waste Services**) paying the vendors a hauler actually pays: landfill tipping fees, fleet fuel, truck maintenance, leasing, insurance.
 
 > **Why a hauler?** This take‑home is for Trashlab, "the operating system for waste haulers." Trashlab owns the hauler's **money‑in** (billing their customers). Settle is the **other half of the ledger — the money‑out** (paying their vendors). Same domain, opposite side.
+
+---
+
+## A look at it
+
+The **bill cockpit** — invoice image, line-item GL coding, and an auditable comment timeline with @-mentions on one screen; large bills hit a server-side approval gate (here, *Requires Controller*):
+
+![Bill cockpit](docs/screenshots/cockpit.png)
+
+| | |
+|:--|:--|
+| ![Dashboard](docs/screenshots/dashboard.png)<br>**Dashboard** — scorecards, the AI-flagged review queue, cash-out by week, and a live activity feed | ![AI Bill Review](docs/screenshots/capture.png)<br>**AI Bill Review** — the invoice is read *and scrutinized against vendor history*, not just OCR'd |
+| ![Bills](docs/screenshots/bills.png)<br>**Bills** — filters, saved views, bulk actions, and derived status pills | ![Payment failed](docs/screenshots/payment-failed.png)<br>**Graceful failure** — an in-context payment-failed recovery card |
 
 ---
 
@@ -23,7 +38,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **Invoice‑centric cockpit** — image + coding + a shared, timestamped, auditable comment thread on one screen (the Stampli pattern), so the "why is this surcharge higher?" conversation lives on the bill instead of in scattered email.
 - **AP controls** — code-side **duplicate detection** (warns when the same vendor + invoice # arrives twice) and an **approval-rules engine** that routes large bills to a senior role (over $10k → Approver, over $50k → Controller), enforced server-side and surfaced as a gate in the cockpit.
 
-Beyond the core, the build also ships **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts) with reusable **allocation templates**, **expense vs. item** line coding, a simulated **AP forwarding inbox**, a **Settings** page (chart of accounts + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
+Beyond the core, the build also ships **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts) with reusable **allocation templates**, **expense vs. item** line coding, a simulated **AP forwarding inbox**, a **Settings** page (chart of accounts + recurring schedules + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
 
 ---
 
@@ -51,7 +66,7 @@ Beyond the core, the build also ships **recurring schedules** (draft the next bi
 - **AI Bill Review = reasoning, not just OCR.** The Capture flow sends the invoice to Claude (vision + structured output) and feeds the **vendor's prior bills** in as context, so Claude can reason about what's anomalous. Deterministic checks (duplicate, vendor‑bank‑change, missing‑recurring) stay in code — cheaper and exact. **Falls back to a deterministic mock** when no `ANTHROPIC_API_KEY` is set, so the hosted demo never breaks.
 - **Stable demo clock.** `lib/demo.ts` pins "today" to the seed's reference date so overdue / aging / time‑ago are stable regardless of when the demo runs.
 
-**Data model** (`db/schema.ts`, 11 tables): `organizations`, `users`, `vendors`, `glAccounts`, `bills`, `billLineItems`, `billFlags` (AI review), `approvalEvents`, `payments`, `billComments` (collaboration), `activityLog` (audit). FKs + Drizzle relations throughout.
+**Data model** (`db/schema.ts`, 15 tables): `organizations`, `users`, `vendors`, `glAccounts`, `bills`, `billLineItems`, `lineItemSplits` (GL splits), `billFlags` (AI review), `approvalEvents`, `payments`, `billComments` (collaboration), `activityLog` (audit), `recurringBillTemplates`, `savedViews`, `allocationTemplates`. FKs + Drizzle relations throughout.
 
 ---
 
@@ -89,6 +104,8 @@ Scripts: `dev` · `build` · `start` · `lint` · `typecheck` · `test` · `test
 
 ### Deploy (Vercel + Neon)
 
+Live at **[settle-qweffys-projects.vercel.app](https://settle-qweffys-projects.vercel.app)**.
+
 1. Push this repo to GitHub and **Import** it in Vercel.
 2. Set env vars in Vercel: `DATABASE_URL` (your Neon string) and optionally `ANTHROPIC_API_KEY`.
 3. Deploy. Run `npm run db:push && npm run db:seed` once against the same database to populate it.
@@ -101,9 +118,9 @@ Three layers, weighted toward end-to-end coverage of the real workflows:
 
 | Layer | Tool | What it covers |
 | --- | --- | --- |
-| **Unit** | Vitest | Pure domain logic, no DB or network — the lifecycle state machine (`lib/status.ts`), the approval-rules engine (`lib/approval-rules.ts`), money/date formatting, and the AI invoice parser's deterministic fallback. ~33 tests, <2s. |
+| **Unit** | Vitest | Pure domain logic, no DB or network — the lifecycle state machine (`lib/status.ts`), the approval-rules engine (`lib/approval-rules.ts`), the zod input schemas (`lib/validation.ts`), the centralized action-result wrapper (`lib/result.ts`), money/date formatting, and the AI invoice parser's deterministic fallback. ~55 tests, <2s. |
 | **Integration** | _(folded into e2e)_ | The e2e layer drives the real Server Actions and database through the UI, so it *is* the integration layer. A separate mock-DB suite would be brittle against Drizzle and low-signal, so it's deliberately omitted. |
-| **E2E** | Playwright | Key user flows against a production build with a real, seeded database: OCR capture → persisted bill, manual bill creation, **CSV import** (validating preview → draft bills), **saved views** (capture → restore filter state), the **$50k approval gate** (role-gated, evaluated server-side), bulk mark-paid, duplicate detection, the vendor directory, and navigation + 404s. |
+| **E2E** | Playwright | Key user flows against a production build with a real, seeded database: OCR capture → persisted bill, manual bill creation, **CSV import** (validating preview → draft bills), **saved views** (capture → restore filter state), the **$50k approval gate** (role-gated, server-side), the **post-approval edit guard**, the **AP forwarding inbox**, **allocation templates**, **expense/item** line coding, bulk mark-paid, duplicate detection, the vendor directory, navigation + 404s, and the **error-state surfaces** (not-found, the payment-failed recovery card, the QuickBooks sync banner). 14 specs / 19 cases. |
 
 ```bash
 npm run test            # unit (Vitest)
@@ -129,17 +146,20 @@ The schema is mounted into the Postgres container's `docker-entrypoint-initdb.d`
 
 ```
 app/(app)/            route group with the shared shell (sidebar + topbar + ⌘K) as the layout
-  dashboard|bills|bills/cockpit|approvals|payments|vendors|reports|capture/
+  dashboard|bills|bills/cockpit|approvals|payments|vendors|reports|capture|settings/
     page.tsx          server component: queries the DB, renders the view
     *-view.tsx        'use client' view: receives typed data by props
     *.css             screen-scoped styles (under .screen-<name>)
 components/           app-shell, icon, theme-provider
 db/                   schema.ts, index.ts (Neon client), seed.ts
 lib/
-  queries/            read-side data access (Server Components)
-  actions/            write-side Server Actions (lifecycle, comments, session)
+  queries/            read-side DB access (Server Components)
+  data/               shared view types + screen constants (nav, status maps…)
+  actions/            write-side Server Actions (bills, ocr, vendors, recurring, views, allocation-templates, settings, session)
   status.ts           state machine + display-status derivation
-  format.ts dates.ts demo.ts
+  result.ts           runAction + ActionError (centralized error handling)
+  validation.ts       zod input schemas
+  approval-rules.ts format.ts dates.ts demo.ts
 app/styles/           tokens.css (design system) + shell.css
 ```
 
