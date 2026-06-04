@@ -283,20 +283,76 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   );
 }
 
+// "g then <key>" sequence targets, Linear-style.
+const GOTO: Record<string, string> = {
+  d: '/dashboard',
+  b: '/bills',
+  v: '/vendors',
+  a: '/approvals',
+  p: '/payments',
+  r: '/reports',
+  s: '/settings',
+};
+const GOTO_WINDOW_MS = 1200;
+
+function isTypingInto(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return (el as HTMLElement).isContentEditable;
+}
+
 export function AppShell({ children, initialRoleIdx = 0 }: { children: React.ReactNode; initialRoleIdx?: number }) {
   const router = useRouter();
   const [cmdkOpen, setCmdkOpen] = useState(false);
+  // Timestamp of the last bare "g" press; 0 means no pending sequence.
+  const gPendingAt = useRef(0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // ⌘K / ⌃K toggles the palette and ⌘N / ⌃N opens a new bill — these
+      // intentionally fire even while typing in a field.
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdkOpen((o) => !o);
-      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         router.push('/bills/new');
-      } else if (e.key === 'Escape') {
+        return;
+      }
+      if (e.key === 'Escape') {
+        gPendingAt.current = 0;
         setCmdkOpen(false);
+        return;
+      }
+
+      // Everything below is a single-key navigation shortcut: skip it while
+      // typing or when a modifier is held.
+      if (isTypingInto(document.activeElement) || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const key = e.key.toLowerCase();
+
+      // Resolve a pending "g then <key>" sequence if still within the window.
+      if (gPendingAt.current && Date.now() - gPendingAt.current <= GOTO_WINDOW_MS) {
+        const href = GOTO[key];
+        gPendingAt.current = 0;
+        if (href) {
+          e.preventDefault();
+          router.push(href);
+        }
+        return;
+      }
+      gPendingAt.current = 0;
+
+      if (key === 'g') {
+        gPendingAt.current = Date.now();
+        return;
+      }
+      if (key === 'c') {
+        e.preventDefault();
+        router.push('/bills/new');
       }
     };
     window.addEventListener('keydown', onKey);

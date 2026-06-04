@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
@@ -152,9 +152,50 @@ export function BillsView({ data }: { data: BillsData }) {
     });
   };
   const exportCsv = () => {
-    setToast(`Exported ${selRows.length} bill${selRows.length > 1 ? 's' : ''} to CSV`);
+    // Export the current selection, or the whole visible list when nothing is selected.
+    const target = selRows.length > 0 ? selRows : rows;
+    const headers = ['Vendor', 'Invoice', 'Amount', 'Due', 'Status', 'GL'];
+    const cell = (value: string) =>
+      /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+    const lines = [
+      headers.join(','),
+      ...target.map((r) =>
+        [r.vendor, r.inv, r.amount.toFixed(2), r.due, STATUS[r.status]?.label ?? r.status, r.gl]
+          .map((v) => cell(String(v)))
+          .join(','),
+      ),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bills.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    setToast(`Exported ${target.length} bill${target.length !== 1 ? 's' : ''} to CSV`);
     clearSel();
     setTimeout(() => setToast(null), 2600);
+  };
+
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const onImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      // Lightweight stub: count non-empty data rows (skip the header line).
+      const dataRows = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      const count = Math.max(dataRows.length - 1, 0);
+      setToast(`Parsed ${count} rows from ${file.name} — review & confirm`);
+      setTimeout(() => setToast(null), 3200);
+    };
+    reader.readAsText(file);
+    // Reset so picking the same file again still fires onChange.
+    e.target.value = '';
   };
 
   const show = (id: string) => visCols.has(id);
@@ -167,7 +208,14 @@ export function BillsView({ data }: { data: BillsData }) {
           <div className="ph-sub">{openCount} open bills · Summit Waste Services · synced 2 min ago</div>
         </div>
         <div className="ph-actions">
-          <button className="btn btn-ghost"><Icon name="upload" size={15} />Import</button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv"
+            hidden
+            onChange={onImportFile}
+          />
+          <button className="btn btn-ghost" onClick={() => importInputRef.current?.click()}><Icon name="upload" size={15} />Import</button>
           <button className="btn btn-primary" onClick={() => router.push('/bills/new')}><Icon name="plus" size={15} />New bill</button>
         </div>
       </div>
@@ -233,13 +281,7 @@ export function BillsView({ data }: { data: BillsData }) {
           )}
         </div>
 
-        <button
-          className="ctrlbtn"
-          onClick={() => {
-            setToast(`Exporting ${rows.length} bills to CSV…`);
-            setTimeout(() => setToast(null), 2600);
-          }}
-        >
+        <button className="ctrlbtn" onClick={exportCsv}>
           <Icon name="download" size={14} />Export
         </button>
 
