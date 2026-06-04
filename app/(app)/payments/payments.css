@@ -1,0 +1,154 @@
+/* Payments (Scheduled · Paid) + Schedule modal — content styles, scoped under .screen-payments */
+.screen-payments {
+  /* match the prototype's narrower wrap */
+  .wrap { max-width: 1200px; padding: 22px 24px 48px; }
+  .page-head { align-items: flex-start; margin-bottom: 18px; }
+
+  /* summary tiles */
+  .psum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
+  .ptile { background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; padding: 14px 16px; }
+  .ptile .pl { font: 600 11px var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); white-space: nowrap; }
+  .ptile .pv { font: 700 23px var(--font-display); letter-spacing: -0.01em; color: var(--fg-1); margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .ptile .pm { font: 500 12px var(--font-ui); color: var(--fg-3); margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .ptile .pdot { width: 7px; height: 7px; border-radius: 50%; }
+
+  /* tabs row */
+  .tabs-row { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--border-1); margin-bottom: 16px; }
+  .tabs { display: flex; align-items: center; gap: 2px; }
+  .tab { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px 13px; border: 0; background: transparent; cursor: pointer; font: 500 14px var(--font-ui); color: var(--fg-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color .12s; }
+  .tab:hover { color: var(--fg-1); }
+  .tab.on { color: var(--fg-1); font-weight: 600; border-bottom-color: var(--primary); }
+  .tab .tc { font: 600 11px var(--font-ui); padding: 1px 7px; border-radius: var(--radius-full); background: var(--surface-sunken); border: 1px solid var(--border-1); color: var(--fg-3); }
+  .tab.on .tc { background: var(--indigo-subtle); border-color: transparent; color: var(--indigo-text); }
+  .tabs-row .tr-spacer { flex: 1; }
+  .tabs-row .tr-search { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; min-width: 200px; }
+  .tabs-row .tr-search .icon { width: 14px; height: 14px; color: var(--fg-3); }
+  .tabs-row .tr-search input { border: 0; outline: 0; background: transparent; font: 400 12.5px var(--font-ui); color: var(--fg-1); width: 100%; }
+  .tabs-row .tr-search input::placeholder { color: var(--fg-3); }
+
+  /* table */
+  .tbl-card { background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; overflow: hidden; }
+  table.pay { width: 100%; border-collapse: collapse; }
+  table.pay thead th { text-align: left; font: 600 10px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); padding: 11px 16px; border-bottom: 1px solid var(--border-1); white-space: nowrap; background: var(--surface-sunken); }
+  table.pay th.r, table.pay td.r { text-align: right; }
+  table.pay tbody td { padding: 0 16px; height: 56px; border-bottom: 1px solid var(--border-1); color: var(--fg-1); vertical-align: middle; }
+  table.pay tbody tr { transition: background .1s; cursor: pointer; }
+  table.pay tbody tr:hover { background: var(--surface-sunken); }
+  table.pay tbody tr:last-child td { border-bottom: 0; }
+  .pv-cell { display: flex; align-items: center; gap: 11px; }
+  .pv-av { width: 30px; height: 30px; border-radius: 7px; background: var(--surface-sunken); border: 1px solid var(--border-1); display: grid; place-items: center; font: 600 11px var(--font-ui); color: var(--fg-2); flex-shrink: 0; }
+  .pv-n { font: 600 13px var(--font-ui); color: var(--fg-1); white-space: nowrap; }
+  .pv-bills { font: 500 11px var(--font-ui); color: var(--fg-3); margin-top: 1px; }
+  .pay-amt { font: 600 13.5px var(--font-ui); color: var(--fg-1); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .method { display: inline-flex; align-items: center; gap: 8px; }
+  .method .mi { width: 26px; height: 26px; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--border-1); display: grid; place-items: center; color: var(--fg-2); flex-shrink: 0; }
+  .method .mi .icon { width: 14px; height: 14px; }
+  .method .ml { font: 500 12.5px var(--font-ui); color: var(--fg-1); white-space: nowrap; }
+  .method .ms { font: 500 11px var(--font-ui); color: var(--fg-3); white-space: nowrap; }
+  .pay-date { font: 500 12.5px var(--font-ui); color: var(--fg-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pay-ref { font: 500 12.5px var(--font-mono); color: var(--fg-3); white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 7px; border-radius: var(--radius-full); font: 500 11.5px var(--font-ui); white-space: nowrap; }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .row-act { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; color: var(--fg-3); opacity: 0; transition: opacity .12s, background .12s, color .12s; }
+  table.pay tbody tr:hover .row-act { opacity: 1; }
+  .row-act:hover { background: var(--surface-sunken); color: var(--fg-1); }
+  .row-act .icon { width: 16px; height: 16px; }
+  .pay-foot td { height: 48px; background: var(--surface-sunken); border-top: 1px solid var(--border-1); font: 600 13px var(--font-ui); color: var(--fg-1); }
+  .pay-foot .fl { font: 600 11px var(--font-ui); letter-spacing: 0.05em; text-transform: uppercase; color: var(--fg-3); }
+  .pay-foot .fv { font-variant-numeric: tabular-nums; }
+
+  /* ---- responsive ---- */
+  @media (max-width: 920px) {
+    .psum { grid-template-columns: 1fr; }
+    .pay-ref-col { display: none; }
+  }
+  @media (max-width: 680px) {
+    .method-col, .pay-date-extra { display: none; }
+  }
+}
+
+/* ============================================================
+   SCHEDULE MODAL + TOAST — fixed overlays, rendered outside
+   the .content flow, so scoped to the screen by ancestor class.
+   ============================================================ */
+.screen-payments .scrim { position: fixed; inset: 0; z-index: 80; background: color-mix(in srgb, var(--slate-950) 42%, transparent); backdrop-filter: blur(3px); display: flex; align-items: flex-start; justify-content: center; padding: 56px 20px; overflow-y: auto; animation: pay-fade .12s ease; }
+@keyframes pay-fade { from { opacity: 0; } }
+.screen-payments .modal { width: 560px; max-width: 100%; background: var(--surface); border: 1px solid var(--border-1); border-radius: 14px; box-shadow: var(--shadow-modal); animation: pay-mpop .14s ease; overflow: hidden; }
+@keyframes pay-mpop { from { transform: scale(.985) translateY(6px); opacity: .6; } }
+.screen-payments .modal-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--border-1); }
+.screen-payments .modal-head .mh-ic { width: 36px; height: 36px; border-radius: 9px; background: var(--indigo-subtle); color: var(--indigo-text); display: grid; place-items: center; flex-shrink: 0; }
+.screen-payments .modal-head .mh-ic .icon { width: 18px; height: 18px; }
+.screen-payments .modal-head .mh-t { font: 700 16px var(--font-display); letter-spacing: -0.01em; color: var(--fg-1); }
+.screen-payments .modal-head .mh-s { font: 500 12px var(--font-ui); color: var(--fg-3); margin-top: 2px; }
+.screen-payments .modal-head .mh-x { margin-left: auto; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--fg-3); cursor: pointer; border: 0; background: transparent; transition: background .12s, color .12s; }
+.screen-payments .modal-head .mh-x:hover { background: var(--surface-sunken); color: var(--fg-1); }
+.screen-payments .modal-head .mh-x .icon { width: 17px; height: 17px; }
+.screen-payments .modal-body { padding: 18px 20px; max-height: 60vh; overflow-y: auto; }
+
+.screen-payments .mfield { margin-bottom: 18px; }
+.screen-payments .mfield:last-child { margin-bottom: 0; }
+.screen-payments .mlabel { font: 600 11px var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); margin-bottom: 9px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.screen-payments .mlabel .ml-r { margin-left: auto; font: 500 11px var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--fg-3); white-space: nowrap; }
+
+/* vendor selector chip */
+.screen-payments .vendor-pick { display: flex; align-items: center; gap: 11px; padding: 11px 13px; border: 1px solid var(--border-2); border-radius: 9px; background: var(--surface); cursor: pointer; }
+.screen-payments .vendor-pick:hover { border-color: var(--primary); }
+.screen-payments .vendor-pick .vp-av { width: 32px; height: 32px; border-radius: 7px; background: var(--surface-sunken); border: 1px solid var(--border-1); display: grid; place-items: center; font: 600 12px var(--font-ui); color: var(--fg-2); flex-shrink: 0; }
+.screen-payments .vendor-pick .vp-n { font: 600 13.5px var(--font-ui); color: var(--fg-1); }
+.screen-payments .vendor-pick .vp-s { font: 500 11.5px var(--font-ui); color: var(--fg-3); margin-top: 1px; }
+.screen-payments .vendor-pick .vp-chev { margin-left: auto; color: var(--fg-3); width: 16px; height: 16px; }
+
+/* consolidate hint */
+.screen-payments .consolidate { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; background: var(--indigo-subtle); border-radius: 9px; margin-bottom: 11px; }
+.screen-payments .consolidate .ci { width: 15px; height: 15px; color: var(--indigo-text); flex-shrink: 0; margin-top: 1px; }
+.screen-payments .consolidate .ct { font: 500 12px var(--font-ui); color: var(--indigo-text); line-height: 1.5; }
+.screen-payments .consolidate .ct b { font-weight: 700; }
+
+/* bill checkboxes */
+.screen-payments .bill-opt { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid var(--border-1); border-radius: 9px; margin-bottom: 8px; cursor: pointer; transition: border-color .12s, background .12s; }
+.screen-payments .bill-opt:hover { background: var(--surface-sunken); }
+.screen-payments .bill-opt.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.screen-payments .cbox { width: 18px; height: 18px; border: 1.5px solid var(--border-2); border-radius: 5px; background: var(--surface); display: grid; place-items: center; flex-shrink: 0; color: transparent; transition: background .12s, border-color .12s; }
+.screen-payments .cbox.on { background: var(--primary); border-color: var(--primary); color: var(--fg-on-accent); }
+.screen-payments .cbox .icon { width: 12px; height: 12px; }
+.screen-payments .bill-opt .bo-main { flex: 1; min-width: 0; }
+.screen-payments .bill-opt .bo-inv { font: 600 13px var(--font-mono); color: var(--fg-1); }
+.screen-payments .bill-opt .bo-sub { font: 500 11.5px var(--font-ui); color: var(--fg-3); margin-top: 2px; }
+.screen-payments .bill-opt .bo-amt { font: 600 13.5px var(--font-ui); color: var(--fg-1); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+/* method radios */
+.screen-payments .method-grid { display: flex; flex-direction: column; gap: 8px; }
+.screen-payments .method-opt { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid var(--border-1); border-radius: 9px; cursor: pointer; transition: border-color .12s, background .12s; }
+.screen-payments .method-opt:hover { background: var(--surface-sunken); }
+.screen-payments .method-opt.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.screen-payments .method-opt .mo-ic { width: 32px; height: 32px; border-radius: 7px; background: var(--surface-sunken); border: 1px solid var(--border-1); display: grid; place-items: center; color: var(--fg-2); flex-shrink: 0; }
+.screen-payments .method-opt.on .mo-ic { background: var(--indigo-subtle); border-color: transparent; color: var(--indigo-text); }
+.screen-payments .method-opt .mo-ic .icon { width: 16px; height: 16px; }
+.screen-payments .method-opt .mo-main { flex: 1; min-width: 0; }
+.screen-payments .method-opt .mo-l { font: 600 13px var(--font-ui); color: var(--fg-1); }
+.screen-payments .method-opt .mo-s { font: 500 11.5px var(--font-ui); color: var(--fg-3); margin-top: 1px; }
+.screen-payments .method-opt .radio { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border-2); flex-shrink: 0; display: grid; place-items: center; }
+.screen-payments .method-opt.on .radio { border-color: var(--primary); }
+.screen-payments .method-opt.on .radio::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--primary); }
+
+/* row of two inputs */
+.screen-payments .mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.screen-payments .minput { display: flex; align-items: center; gap: 9px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--surface); padding: 10px 12px; transition: border-color .12s, box-shadow .12s; }
+.screen-payments .minput:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent); }
+.screen-payments .minput .icon { width: 15px; height: 15px; color: var(--fg-3); flex-shrink: 0; }
+.screen-payments .minput input { border: 0; outline: 0; background: transparent; font: 500 13px var(--font-ui); color: var(--fg-1); width: 100%; }
+.screen-payments .minput input::placeholder { color: var(--fg-3); font-weight: 400; }
+.screen-payments .minput.mono input { font-family: var(--font-mono); }
+
+/* modal footer with total */
+.screen-payments .modal-foot { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-top: 1px solid var(--border-1); background: var(--surface-sunken); }
+.screen-payments .modal-foot .mf-total { line-height: 1.2; }
+.screen-payments .modal-foot .mf-tl { font: 500 11px var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); }
+.screen-payments .modal-foot .mf-tv { font: 700 20px var(--font-display); color: var(--fg-1); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.screen-payments .modal-foot .mf-sub { font: 500 11.5px var(--font-ui); color: var(--fg-3); margin-top: 1px; white-space: nowrap; }
+.screen-payments .modal-foot .mf-spacer { flex: 1; }
+
+/* toast */
+.screen-payments .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 95; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; box-shadow: var(--shadow-modal); padding: 11px 16px; font: 600 13px var(--font-ui); color: var(--fg-1); animation: pay-tup .16s ease; }
+@keyframes pay-tup { from { opacity: 0; transform: translate(-50%, 8px); } }
+.screen-payments .toast .icon { width: 16px; height: 16px; color: var(--paid-solid); }
