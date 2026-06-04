@@ -292,6 +292,7 @@ type NewBillLine = {
   unitPriceCents: number | null;
   amountCents: number;
   glLabel: string;
+  kind?: 'expense' | 'item';
   splits?: { glLabel: string; amountCents: number }[];
 };
 
@@ -367,6 +368,7 @@ export async function createBill(input: {
       unitPriceCents: l.unitPriceCents,
       amountCents: l.amountCents,
       glLabel: l.glLabel,
+      kind: l.kind ?? 'expense',
       sortOrder: i,
     }));
     await db.insert(billLineItems).values(lineRows);
@@ -445,6 +447,7 @@ export async function updateBill(
       unitPriceCents: l.unitPriceCents,
       amountCents: l.amountCents,
       glLabel: l.glLabel,
+      kind: l.kind ?? 'expense',
       sortOrder: i,
     }));
     await db.insert(billLineItems).values(lineRows);

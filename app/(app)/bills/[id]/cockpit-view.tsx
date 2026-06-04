@@ -295,7 +295,7 @@ function CenterPanel({
                   return (
                     <Fragment key={l.id}>
                       <tr>
-                        <td><div className="li-desc">{l.flag && <Icon name="flag" size={14} className="lflag" />}{l.desc}</div></td>
+                        <td><div className="li-desc">{l.flag && <Icon name="flag" size={14} className="lflag" />}{l.desc}{l.kind === 'item' && <span className="li-kind">Item</span>}</div></td>
                         <td className="r"><span className="li-qty">{l.qty}</span></td>
                         <td className="r"><span className="li-unit">{fmt(l.unit)}</span></td>
                         <td className="r"><span className="li-amt">{fmt(l.amount)}</span></td>

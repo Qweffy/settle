@@ -40,6 +40,7 @@ export type Line = {
   unit: number;
   amount: number;
   gl: string;
+  kind?: 'expense' | 'item';
   split: boolean;
   splits?: { gl: string; amount: number }[];
   flag?: boolean;

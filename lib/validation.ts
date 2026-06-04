@@ -34,6 +34,7 @@ export const lineItemSchema = z.object({
   unitPriceCents: centsSchema.nullable(),
   amountCents: centsSchema,
   glLabel: z.string().trim().min(1, 'Each line needs a GL account'),
+  kind: z.enum(['expense', 'item']).optional(),
   splits: z.array(splitSchema).optional(),
 });
 

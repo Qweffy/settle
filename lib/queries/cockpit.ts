@@ -159,6 +159,7 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
       unit: (l.unitPriceCents ?? l.amountCents) / 100,
       amount: l.amountCents / 100,
       gl: l.glLabel ?? bill.glAccount ?? '',
+      kind: l.kind,
       split: hasSplits,
       splits: hasSplits ? l.splits.map((s) => ({ gl: s.glLabel, amount: s.amountCents / 100 })) : undefined,
       flag: flaggedLineIdx.has(i) || undefined,

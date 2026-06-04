@@ -143,11 +143,11 @@ const BILLS: SeedBill[] = [
     lines: [{ description: 'Uniform rental + laundry', amount: 1810, gl: 'gl-office' }, { description: 'Facility mats', amount: 500, gl: 'gl-office' }],
     flags: [{ type: 'possible_duplicate', severity: 'low', title: 'Possible duplicate of CIN-4471', message: 'Same vendor and amount ($2,310.00) as CIN-4471 paid on May 28. Confirm this is the new weekly cycle, not a re-bill.' }] },
   { id: 'b-wastequip-7720', vendor: 'v-wastequip', invoice: 'WQ-7720', status: 'draft', issue: -2, due: null, gl: 'Equipment', memo: '20-yd roll-off containers (qty 8)',
-    lines: [{ description: '20-yard roll-off containers', qty: 8, unit: 2845, amount: 22760, gl: 'gl-equip' }, { description: 'Freight & delivery', amount: 2000, gl: 'gl-equip' }] },
+    lines: [{ description: '20-yard roll-off containers', qty: 8, unit: 2845, amount: 22760, gl: 'gl-equip', kind: 'item' as const }, { description: 'Freight & delivery', amount: 2000, gl: 'gl-equip' }] },
 
   // ---- extra aging fillers ----
   { id: 'b-goodyear-3370', vendor: 'v-goodyear', invoice: 'GY-3370', status: 'approved', issue: -55, due: -25, gl: 'Tires', memo: 'Drive tires — 18 units',
-    lines: [{ description: 'Commercial drive tires (set)', qty: 18, unit: 612, amount: 11016, gl: 'gl-tires' }] },
+    lines: [{ description: 'Commercial drive tires (set)', qty: 18, unit: 612, amount: 11016, gl: 'gl-tires', kind: 'item' as const }] },
   { id: 'b-heil-5501', vendor: 'v-heil', invoice: 'HEIL-5501', status: 'approved', issue: -100, due: -70, gl: 'Fleet Maintenance', memo: 'Brake service — Q1 fleet',
     lines: [{ description: 'Brake service — 9 units', amount: 8650, gl: 'gl-maint' }] },
 ];

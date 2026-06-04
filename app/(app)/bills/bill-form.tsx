@@ -10,7 +10,7 @@ import type { NewBillFormData, BillFormInitial } from '@/lib/queries/new-bill';
 import './bill-form.css';
 
 type Split = { key: string; glLabel: string; amount: string };
-type Line = { key: string; description: string; qty: string; unit: string; amount: string; glLabel: string; splits: Split[] };
+type Line = { key: string; description: string; qty: string; unit: string; amount: string; glLabel: string; kind: 'expense' | 'item'; splits: Split[] };
 
 export function BillForm({
   data,
@@ -25,7 +25,7 @@ export function BillForm({
   const firstGl = data.glAccounts[0]?.name ?? '';
   const seq = useRef(initial?.lines.length ?? 1);
   const splitSeq = useRef(0);
-  const makeLine = (): Line => ({ key: `l${seq.current++}`, description: '', qty: '', unit: '', amount: '', glLabel: firstGl, splits: [] });
+  const makeLine = (): Line => ({ key: `l${seq.current++}`, description: '', qty: '', unit: '', amount: '', glLabel: firstGl, kind: 'expense', splits: [] });
   const makeSplit = (): Split => ({ key: `s${splitSeq.current++}`, glLabel: firstGl, amount: '' });
 
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? '');
@@ -45,9 +45,10 @@ export function BillForm({
           unit: l.unit,
           amount: l.amount,
           glLabel: l.glLabel,
+          kind: l.kind,
           splits: l.splits.map((s, j) => ({ key: `l${i}s${j}`, glLabel: s.glLabel, amount: s.amount })),
         }))
-      : [{ key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl, splits: [] }],
+      : [{ key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl, kind: 'expense' as const, splits: [] }],
   );
   const [saving, startSave] = useTransition();
 
@@ -112,6 +113,7 @@ export function BillForm({
             unitPriceCents: l.unit.trim() !== '' ? Math.round(num(l.unit) * 100) : null,
             amountCents: Math.round(num(l.amount) * 100),
             glLabel: l.glLabel,
+            kind: l.kind,
             ...(splits.length > 0 ? { splits } : {}),
           };
         }),
@@ -207,7 +209,19 @@ export function BillForm({
                     return (
                       <React.Fragment key={l.key}>
                         <tr>
-                          <td><input className="nb-cell" value={l.description} onChange={(e) => updateLine(l.key, { description: e.target.value })} placeholder="Description" /></td>
+                          <td>
+                            <div className="nb-desc-cell">
+                              <input className="nb-cell" value={l.description} onChange={(e) => updateLine(l.key, { description: e.target.value })} placeholder="Description" />
+                              <button
+                                type="button"
+                                className={'nb-kind' + (l.kind === 'item' ? ' item' : '')}
+                                onClick={() => updateLine(l.key, { kind: l.kind === 'expense' ? 'item' : 'expense' })}
+                                title="Toggle line type — expense vs. item"
+                              >
+                                {l.kind === 'item' ? 'Item' : 'Expense'}
+                              </button>
+                            </div>
+                          </td>
                           <td className="r"><input className="nb-cell r" inputMode="decimal" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} placeholder="—" /></td>
                           <td className="r"><input className="nb-cell r" inputMode="decimal" value={l.unit} onChange={(e) => updateLine(l.key, { unit: e.target.value })} placeholder="—" /></td>
                           <td className="r"><input className="nb-cell r money" inputMode="decimal" value={l.amount} onChange={(e) => updateLine(l.key, { amount: e.target.value })} placeholder="0.00" /></td>

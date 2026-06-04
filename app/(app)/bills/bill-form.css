@@ -101,6 +101,12 @@
   .nb-error { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--failed-bg); border: 1px solid color-mix(in srgb, var(--failed-solid) 30%, transparent); border-radius: 10px; }
   .nb-error-ic { color: var(--failed-ink); flex-shrink: 0; width: 16px; height: 16px; }
   .nb-error-text { font: 500 12.5px var(--font-ui); color: var(--failed-ink); line-height: 1.45; }
+  /* expense / item line-type toggle */
+  .nb-desc-cell { display: flex; align-items: center; gap: 8px; }
+  .nb-desc-cell .nb-cell { flex: 1; min-width: 0; }
+  .nb-kind { flex-shrink: 0; border: 1px solid var(--border-2); background: var(--surface); color: var(--fg-3); font: 600 9.5px var(--font-ui); letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--radius-full); cursor: pointer; transition: background .12s, color .12s, border-color .12s; }
+  .nb-kind:hover { color: var(--fg-2); border-color: var(--fg-3); }
+  .nb-kind.item { background: color-mix(in srgb, var(--approval-solid) 14%, transparent); border-color: color-mix(in srgb, var(--approval-solid) 32%, transparent); color: var(--approval-ink); }
 
   /* actions */
   .nb-actions { display: flex; align-items: center; gap: 12px; padding: 2px 2px; }

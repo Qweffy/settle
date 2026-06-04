@@ -30,6 +30,7 @@ export type BillFormInitialLine = {
   unit: string;
   amount: string;
   glLabel: string;
+  kind: 'expense' | 'item';
   splits: { glLabel: string; amount: string }[];
 };
 
@@ -66,6 +67,7 @@ export async function getBillForEdit(billId: string): Promise<BillFormInitial | 
       unit: centsToStr(l.unitPriceCents),
       amount: centsToStr(l.amountCents),
       glLabel: l.glLabel ?? '',
+      kind: l.kind,
       splits: l.splits.map((s) => ({ glLabel: s.glLabel, amount: centsToStr(s.amountCents) })),
     })),
   };
