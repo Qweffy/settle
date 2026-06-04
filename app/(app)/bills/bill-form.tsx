@@ -104,7 +104,11 @@ export function BillForm({
     if (!name?.trim()) return;
     const tmplLines = valid.map((s) => ({ glLabel: s.glLabel, percentBps: Math.round(((num(s.amount) * 100) / totalCents) * 10000) }));
     startTemplate(async () => {
-      await createAllocationTemplate(name.trim(), tmplLines, vendorId || undefined);
+      const res = await createAllocationTemplate(name.trim(), tmplLines, vendorId || undefined);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       router.refresh();
     });
   };

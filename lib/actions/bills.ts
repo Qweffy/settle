@@ -9,7 +9,7 @@ import { assertTransition, canTransition, isEditable, type BillLifecycle } from 
 import type { OcrExtraction, OcrFlag } from '@/lib/ocr';
 import { DEMO_ORG } from '@/lib/demo';
 import { requiredApproval, roleSatisfies, roleLabel } from '@/lib/approval-rules';
-import { ok, err, type ActionResult } from '@/lib/result';
+import { runAction, ActionError, type ActionResult } from '@/lib/result';
 import {
   parseOrThrow,
   parseOrResult,
@@ -95,24 +95,25 @@ export async function submitBill(billId: string) {
 }
 
 export async function approveBill(billId: string): Promise<ActionResult<void>> {
-  const b = await loadBill(billId);
-  assertTransition(b.status as BillLifecycle, 'approved');
-  const actor = await getCurrentUserId();
-  // Approval-rules gate: large bills require a more senior role to sign off.
-  // Returned (not thrown) so the gate message survives the prod build and
-  // reaches the user.
-  const gate = requiredApproval(b.totalCents);
-  if (gate) {
-    const actorRole = await loadActorRole(actor);
-    if (!roleSatisfies(actorRole, gate.requiredRole)) {
-      return err(`This bill needs ${roleLabel(gate.requiredRole)} approval`);
+  return runAction("Couldn't approve this bill — please try again.", async () => {
+    const b = await loadBill(billId);
+    assertTransition(b.status as BillLifecycle, 'approved');
+    const actor = await getCurrentUserId();
+    // Approval-rules gate: large bills require a more senior role to sign off.
+    // Thrown as an ActionError so the gate message surfaces verbatim (and
+    // survives the prod build) instead of collapsing to the generic fallback.
+    const gate = requiredApproval(b.totalCents);
+    if (gate) {
+      const actorRole = await loadActorRole(actor);
+      if (!roleSatisfies(actorRole, gate.requiredRole)) {
+        throw new ActionError(`This bill needs ${roleLabel(gate.requiredRole)} approval`);
+      }
     }
-  }
-  await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: new Date(), updatedAt: new Date() }).where(eq(bills.id, billId));
-  await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'approve' });
-  await logActivity(b.orgId, billId, actor, 'approved', 'approved', b.totalCents);
-  revalidateAll();
-  return ok(undefined);
+    await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: new Date(), updatedAt: new Date() }).where(eq(bills.id, billId));
+    await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'approve' });
+    await logActivity(b.orgId, billId, actor, 'approved', 'approved', b.totalCents);
+    revalidateAll();
+  });
 }
 
 export async function rejectBill(billId: string, note?: string) {
@@ -323,67 +324,69 @@ export async function createBill(input: {
 }): Promise<ActionResult<string>> {
   const parsed = parseOrResult(createBillSchema, input);
   if (!parsed.ok) return parsed;
-  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
-  if (!vendor) return err('Vendor not found.');
-  const actor = await getCurrentUserId();
-  const billId = rid('b');
-  const now = new Date();
+  return runAction("Couldn't save this bill — please try again.", async () => {
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
+    if (!vendor) throw new ActionError('Vendor not found.');
+    const actor = await getCurrentUserId();
+    const billId = rid('b');
+    const now = new Date();
 
-  const parseDate = (s: string | null): Date | null => {
-    if (!s) return null;
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
+    const parseDate = (s: string | null): Date | null => {
+      if (!s) return null;
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
 
-  const subtotalCents = input.lineItems.reduce((sum, l) => sum + l.amountCents, 0);
-  const totalCents = subtotalCents + input.taxCents;
+    const subtotalCents = input.lineItems.reduce((sum, l) => sum + l.amountCents, 0);
+    const totalCents = subtotalCents + input.taxCents;
 
-  await db.insert(bills).values({
-    id: billId,
-    orgId: vendor.orgId,
-    vendorId: vendor.id,
-    invoiceNumber: input.invoiceNumber,
-    status: 'pending_approval',
-    reviewStatus: 'clean',
-    ocrStatus: 'none',
-    source: 'manual',
-    issueDate: parseDate(input.issueDate),
-    dueDate: parseDate(input.dueDate),
-    currency: 'USD',
-    subtotalCents,
-    taxCents: input.taxCents,
-    totalCents,
-    memo: input.memo,
-    glAccount: input.lineItems[0]?.glLabel ?? vendor.defaultGl ?? null,
-    createdBy: actor,
-    submittedAt: now,
+    await db.insert(bills).values({
+      id: billId,
+      orgId: vendor.orgId,
+      vendorId: vendor.id,
+      invoiceNumber: input.invoiceNumber,
+      status: 'pending_approval',
+      reviewStatus: 'clean',
+      ocrStatus: 'none',
+      source: 'manual',
+      issueDate: parseDate(input.issueDate),
+      dueDate: parseDate(input.dueDate),
+      currency: 'USD',
+      subtotalCents,
+      taxCents: input.taxCents,
+      totalCents,
+      memo: input.memo,
+      glAccount: input.lineItems[0]?.glLabel ?? vendor.defaultGl ?? null,
+      createdBy: actor,
+      submittedAt: now,
+    });
+
+    if (input.lineItems.length > 0) {
+      const lineRows = input.lineItems.map((l, i) => ({
+        id: rid('li'),
+        billId,
+        description: l.description,
+        quantity: l.quantity,
+        unitPriceCents: l.unitPriceCents,
+        amountCents: l.amountCents,
+        glLabel: l.glLabel,
+        kind: l.kind ?? 'expense',
+        sortOrder: i,
+      }));
+      await db.insert(billLineItems).values(lineRows);
+      await insertLineSplits(
+        input.lineItems
+          .map((l, i) => ({ lineItemId: lineRows[i].id, lineAmountCents: l.amountCents, splits: l.splits ?? [] }))
+          .filter((r) => r.splits.length > 0),
+      );
+    }
+
+    await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'submit' });
+    await logActivity(vendor.orgId, billId, actor, 'created', 'created this bill manually', totalCents);
+    await logActivity(vendor.orgId, billId, actor, 'submitted', 'submitted for approval', null);
+    revalidateAll();
+    return billId;
   });
-
-  if (input.lineItems.length > 0) {
-    const lineRows = input.lineItems.map((l, i) => ({
-      id: rid('li'),
-      billId,
-      description: l.description,
-      quantity: l.quantity,
-      unitPriceCents: l.unitPriceCents,
-      amountCents: l.amountCents,
-      glLabel: l.glLabel,
-      kind: l.kind ?? 'expense',
-      sortOrder: i,
-    }));
-    await db.insert(billLineItems).values(lineRows);
-    await insertLineSplits(
-      input.lineItems
-        .map((l, i) => ({ lineItemId: lineRows[i].id, lineAmountCents: l.amountCents, splits: l.splits ?? [] }))
-        .filter((r) => r.splits.length > 0),
-    );
-  }
-
-  await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'submit' });
-  await logActivity(vendor.orgId, billId, actor, 'created', 'created this bill manually', totalCents);
-  await logActivity(vendor.orgId, billId, actor, 'submitted', 'submitted for approval', null);
-  revalidateAll();
-  return ok(billId);
 }
 
 // Update an existing bill's fields + line items (from the Edit form).
@@ -401,66 +404,68 @@ export async function updateBill(
 ): Promise<ActionResult<string>> {
   const parsed = parseOrResult(updateBillSchema, input);
   if (!parsed.ok) return parsed;
-  const b = await loadBill(billId);
-  // State guard: only pre-decision bills are editable. Past approval, editing
-  // would silently invalidate an approval or a queued payment.
-  if (!isEditable(b.status as BillLifecycle)) {
-    return err(`This bill can't be edited once it's ${DUPLICATE_STATUS_LABEL[b.status] ?? b.status}.`);
-  }
-  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
-  if (!vendor) return err('Vendor not found.');
-  const actor = await getCurrentUserId();
+  return runAction("Couldn't save your changes — please try again.", async () => {
+    const b = await loadBill(billId);
+    // State guard: only pre-decision bills are editable. Past approval, editing
+    // would silently invalidate an approval or a queued payment.
+    if (!isEditable(b.status as BillLifecycle)) {
+      throw new ActionError(`This bill can't be edited once it's ${DUPLICATE_STATUS_LABEL[b.status] ?? b.status}.`);
+    }
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
+    if (!vendor) throw new ActionError('Vendor not found.');
+    const actor = await getCurrentUserId();
 
-  const parseDate = (s: string | null): Date | null => {
-    if (!s) return null;
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
-  const subtotalCents = input.lineItems.reduce((sum, l) => sum + l.amountCents, 0);
-  const totalCents = subtotalCents + input.taxCents;
+    const parseDate = (s: string | null): Date | null => {
+      if (!s) return null;
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+    const subtotalCents = input.lineItems.reduce((sum, l) => sum + l.amountCents, 0);
+    const totalCents = subtotalCents + input.taxCents;
 
-  await db
-    .update(bills)
-    .set({
-      vendorId: vendor.id,
-      invoiceNumber: input.invoiceNumber,
-      issueDate: parseDate(input.issueDate),
-      dueDate: parseDate(input.dueDate),
-      memo: input.memo,
-      taxCents: input.taxCents,
-      subtotalCents,
-      totalCents,
-      glAccount: input.lineItems[0]?.glLabel ?? vendor.defaultGl ?? null,
-      updatedAt: new Date(),
-    })
-    .where(eq(bills.id, billId));
+    await db
+      .update(bills)
+      .set({
+        vendorId: vendor.id,
+        invoiceNumber: input.invoiceNumber,
+        issueDate: parseDate(input.issueDate),
+        dueDate: parseDate(input.dueDate),
+        memo: input.memo,
+        taxCents: input.taxCents,
+        subtotalCents,
+        totalCents,
+        glAccount: input.lineItems[0]?.glLabel ?? vendor.defaultGl ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(bills.id, billId));
 
-  // Replace line items wholesale — simplest correct strategy for a small set.
-  // Their splits cascade away on delete, so we just reinsert fresh below.
-  await db.delete(billLineItems).where(eq(billLineItems.billId, billId));
-  if (input.lineItems.length > 0) {
-    const lineRows = input.lineItems.map((l, i) => ({
-      id: rid('li'),
-      billId,
-      description: l.description,
-      quantity: l.quantity,
-      unitPriceCents: l.unitPriceCents,
-      amountCents: l.amountCents,
-      glLabel: l.glLabel,
-      kind: l.kind ?? 'expense',
-      sortOrder: i,
-    }));
-    await db.insert(billLineItems).values(lineRows);
-    await insertLineSplits(
-      input.lineItems
-        .map((l, i) => ({ lineItemId: lineRows[i].id, lineAmountCents: l.amountCents, splits: l.splits ?? [] }))
-        .filter((r) => r.splits.length > 0),
-    );
-  }
+    // Replace line items wholesale — simplest correct strategy for a small set.
+    // Their splits cascade away on delete, so we just reinsert fresh below.
+    await db.delete(billLineItems).where(eq(billLineItems.billId, billId));
+    if (input.lineItems.length > 0) {
+      const lineRows = input.lineItems.map((l, i) => ({
+        id: rid('li'),
+        billId,
+        description: l.description,
+        quantity: l.quantity,
+        unitPriceCents: l.unitPriceCents,
+        amountCents: l.amountCents,
+        glLabel: l.glLabel,
+        kind: l.kind ?? 'expense',
+        sortOrder: i,
+      }));
+      await db.insert(billLineItems).values(lineRows);
+      await insertLineSplits(
+        input.lineItems
+          .map((l, i) => ({ lineItemId: lineRows[i].id, lineAmountCents: l.amountCents, splits: l.splits ?? [] }))
+          .filter((r) => r.splits.length > 0),
+      );
+    }
 
-  await logActivity(b.orgId, billId, actor, 'edited', 'edited this bill', totalCents);
-  revalidateAll();
-  return ok(billId);
+    await logActivity(b.orgId, billId, actor, 'edited', 'edited this bill', totalCents);
+    revalidateAll();
+    return billId;
+  });
 }
 
 export type BulkAction = 'submit' | 'approve' | 'schedule' | 'pay';

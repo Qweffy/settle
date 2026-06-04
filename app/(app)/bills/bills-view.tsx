@@ -328,7 +328,11 @@ export function BillsView({ data }: { data: BillsData }) {
     const name = viewName.trim();
     if (!name) return;
     startViews(async () => {
-      await createSavedView(name, currentConfig());
+      const res = await createSavedView(name, currentConfig());
+      if (!res.ok) {
+        flash(res.error);
+        return;
+      }
       setViewName('');
       setMenu(null);
       router.refresh();
