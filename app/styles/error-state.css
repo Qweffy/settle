@@ -1,0 +1,20 @@
+/* Full-page error states — the design's `.estate`, on the shared tokens. */
+.estate-wrap { display: grid; place-items: center; min-height: min(62vh, 540px); padding: 48px 24px; }
+.estate-page { min-height: 100dvh; display: grid; place-items: center; background: var(--background); padding: 24px; }
+
+.estate { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 380px; }
+.estate-med { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; margin-bottom: 16px; }
+.estate-med .icon { width: 26px; height: 26px; }
+.estate-med.red { background: var(--failed-bg); color: var(--failed-ink); }
+.estate-med.amber { background: var(--review-bg); color: var(--review-ink); }
+.estate-med.neutral { background: var(--surface-sunken); border: 1px solid var(--border-1); color: var(--fg-2); }
+.estate-title { font: 700 18px var(--font-display); letter-spacing: -0.01em; color: var(--fg-1); }
+.estate-body { font: 400 13px var(--font-ui); color: var(--fg-2); line-height: 1.55; margin-top: 8px; }
+.estate-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+.estate-meta { display: inline-flex; align-items: center; gap: 6px; font: 500 11.5px var(--font-mono); color: var(--fg-3); margin-top: 16px; }
+.estate-meta .icon { width: 12px; height: 12px; }
+
+/* small button variant + spinner (not previously defined in shell.css) */
+.btn-sm { padding: 6px 11px; font-size: 12px; }
+@keyframes estate-spin { to { transform: rotate(360deg); } }
+.spin { animation: estate-spin 1s linear infinite; }
