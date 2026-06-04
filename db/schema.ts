@@ -182,6 +182,32 @@ export const activityLog = pgTable('activity_log', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// Recurring bill schedules — generate the next bill for a vendor on a cadence.
+export const recurringBillTemplates = pgTable('recurring_bill_templates', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  vendorId: text('vendor_id').notNull().references(() => vendors.id),
+  frequency: text('frequency').notNull(), // monthly | weekly | quarterly
+  description: text('description').notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  glLabel: text('gl_label'),
+  nextRunDate: timestamp('next_run_date').notNull(),
+  lastGeneratedAt: timestamp('last_generated_at'),
+  active: text('active').notNull().default('active'), // active | paused
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// Split a line item's amount across multiple GL accounts / cost centers.
+export const lineItemSplits = pgTable('line_item_splits', {
+  id: text('id').primaryKey(),
+  lineItemId: text('line_item_id').notNull().references(() => billLineItems.id, { onDelete: 'cascade' }),
+  glLabel: text('gl_label').notNull(),
+  costCenter: text('cost_center'),
+  amountCents: integer('amount_cents').notNull(),
+  percentBps: integer('percent_bps'), // basis points of the line total (0-10000)
+  memo: text('memo'),
+});
+
 /* --------------------------- relations --------------------------- */
 export const vendorsRelations = relations(vendors, ({ many }) => ({
   bills: many(bills),
@@ -198,9 +224,10 @@ export const billsRelations = relations(bills, ({ one, many }) => ({
   comments: many(billComments),
 }));
 
-export const lineItemsRelations = relations(billLineItems, ({ one }) => ({
+export const lineItemsRelations = relations(billLineItems, ({ one, many }) => ({
   bill: one(bills, { fields: [billLineItems.billId], references: [bills.id] }),
   gl: one(glAccounts, { fields: [billLineItems.glAccountId], references: [glAccounts.id] }),
+  splits: many(lineItemSplits),
 }));
 
 export const flagsRelations = relations(billFlags, ({ one }) => ({
@@ -219,4 +246,12 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const approvalEventsRelations = relations(approvalEvents, ({ one }) => ({
   bill: one(bills, { fields: [approvalEvents.billId], references: [bills.id] }),
   actor: one(users, { fields: [approvalEvents.actorId], references: [users.id] }),
+}));
+
+export const recurringTemplatesRelations = relations(recurringBillTemplates, ({ one }) => ({
+  vendor: one(vendors, { fields: [recurringBillTemplates.vendorId], references: [vendors.id] }),
+}));
+
+export const lineItemSplitsRelations = relations(lineItemSplits, ({ one }) => ({
+  lineItem: one(billLineItems, { fields: [lineItemSplits.lineItemId], references: [billLineItems.id] }),
 }));
