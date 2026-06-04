@@ -15,10 +15,11 @@ A finance team lives in four workflows, and Settle is organized around them:
 3. **Schedule → Pay.** Approved bills get a payment scheduled and then marked paid (simulated rail), with consolidation hints for vendors you pay often.
 4. **Monitor.** The **Dashboard** (scorecards, needs‑review, expected‑but‑missing bills, cash‑out by week, activity feed) and the **AP Aging** report keep the whole thing under control.
 
-### The two differentiators
+### The differentiators
 
 - **AI Bill Review** — the invoice isn't just OCR'd, it's *scrutinized against the vendor's history*. Each flag carries a plain‑English reason + severity. This directly attacks the #1 hauler AP pain: hidden markups in tipping/fuel invoices.
 - **Invoice‑centric cockpit** — image + coding + a shared, timestamped, auditable comment thread on one screen (the Stampli pattern), so the "why is this surcharge higher?" conversation lives on the bill instead of in scattered email.
+- **AP controls** — code-side **duplicate detection** (warns when the same vendor + invoice # arrives twice) and an **approval-rules engine** that routes large bills to a senior role (over $10k → Approver, over $50k → Controller), enforced server-side and surfaced as a gate in the cockpit.
 
 ---
 
@@ -56,7 +57,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **2‑way accounting sync (QuickBooks/NetSuite)** — realistic in Ramp but not meaningfully mockable in the timebox; the activity feed shows a representative "synced from QuickBooks" event.
 - **Global/FX mass payments + a tax engine (1099/W‑8/VAT)** — deliberately dropped after the competitor benchmark: overkill for a US‑domestic hauler.
 - **Historical series for scorecard deltas/sparklines** — the scorecard *values* are real (live DB aggregates); the small delta % and sparkline are illustrative, since there's no time‑series table yet.
-- **An approval-rules engine** — the bills table now runs bulk submit/approve/schedule/mark-paid over a selection; what's left is threshold-based approval *routing* (e.g. bills over $X require a controller), modeled in the roadmap but not built. (Bills *and* vendors both ship full create/edit forms + dynamic `/bills/[id]` and `/vendors/[id]` detail routes — captured/created records route straight to their detail.)
+- **Recurring bills, line-item splits & a Settings home** — vendors carry a `cadence` but recurring bills aren't auto-generated yet; splitting a line across GL accounts and a `/settings` page (GL accounts + rules, today a 404) are the next roadmap items. (Bills *and* vendors both ship full create/edit forms + dynamic `/bills/[id]` and `/vendors/[id]` detail routes — captured/created records route straight to their detail.)
 
 ---
 
