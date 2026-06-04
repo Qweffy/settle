@@ -182,6 +182,7 @@ const nid = (p: string) => `${p}-${(++seq).toString().padStart(4, '0')}`;
 
 async function main() {
   console.info('Clearing existing data…');
+  await db.delete(s.savedViews);
   await db.delete(s.activityLog);
   await db.delete(s.recurringBillTemplates);
   await db.delete(s.billComments);

@@ -2,6 +2,7 @@
 // Money is stored as integer cents. Status fields use pg enums.
 import { pgTable, text, integer, timestamp, pgEnum, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import type { SavedViewConfig } from '@/lib/data/bills';
 
 /* ----------------------------- enums ----------------------------- */
 export const userRole = pgEnum('user_role', ['clerk', 'approver', 'controller']);
@@ -206,6 +207,17 @@ export const lineItemSplits = pgTable('line_item_splits', {
   amountCents: integer('amount_cents').notNull(),
   percentBps: integer('percent_bps'), // basis points of the line total (0-10000)
   memo: text('memo'),
+});
+
+// A saved bills-list view — a named snapshot of the table's filter state,
+// shared across the org's AP team. `config` is pure UI state stored as JSON.
+export const savedViews = pgTable('saved_views', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  name: text('name').notNull(),
+  config: jsonb('config').$type<SavedViewConfig>().notNull(),
+  createdBy: text('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
 /* --------------------------- relations --------------------------- */

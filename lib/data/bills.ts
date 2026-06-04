@@ -114,3 +114,18 @@ export const COLS: Col[] = [
   { id: 'gl', label: 'GL account' },
   { id: 'flag', label: 'AI flag' },
 ];
+
+export type SortKey = 'vendor' | 'amount' | 'due';
+export type Sort = { key: SortKey; dir: 'asc' | 'desc' };
+
+// A saved bills-list view — a named snapshot of the table's filter state. The
+// shape is pure UI state, persisted as JSON (see the `saved_views` table).
+export type SavedViewConfig = {
+  tab: string;
+  query: string;
+  sort: Sort;
+  filters: string[]; // active filter-chip ids
+  cols: string[]; // visible column ids
+  density: number; // row height in px
+};
+export type SavedView = { id: string; name: string; config: SavedViewConfig };

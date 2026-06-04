@@ -4,15 +4,78 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
-import { bulkAdvance, type BulkAction } from '@/lib/actions/bills';
+import { bulkAdvance, importBills, type BulkAction, type ImportRow } from '@/lib/actions/bills';
+import { createSavedView, deleteSavedView } from '@/lib/actions/views';
 import {
   FILTERS,
   STATUS,
   COLS,
   type StatusKey,
+  type Sort,
+  type SavedView,
+  type SavedViewConfig,
 } from '@/lib/data/bills';
 import type { BillsData } from '@/lib/queries/bills';
 import './bills.css';
+
+// CSV header → ImportRow field. A few common aliases are accepted per column.
+const FIELD_BY_HEADER: Record<string, keyof ImportRow> = {
+  vendor: 'vendor', vendor_name: 'vendor', supplier: 'vendor',
+  invoice_number: 'invoiceNumber', invoice: 'invoiceNumber', invoice_no: 'invoiceNumber', inv: 'invoiceNumber',
+  amount: 'amount', total: 'amount', amount_usd: 'amount',
+  due_date: 'dueDate', due: 'dueDate',
+  gl_account: 'gl', gl: 'gl', category: 'gl',
+  description: 'description', memo: 'description', desc: 'description',
+};
+
+// Minimal RFC-4180-ish CSV parser: handles quoted fields, escaped quotes ("")
+// and commas/newlines inside quotes. Returns the non-empty rows.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  const pushField = () => { row.push(field); field = ''; };
+  const pushRow = () => { if (row.some((c) => c.trim() !== '')) rows.push(row); row = []; };
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else quoted = false;
+      } else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') pushField();
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      pushField(); pushRow();
+    } else field += ch;
+  }
+  pushField();
+  pushRow();
+  return rows;
+}
+
+const parseAmount = (raw: string): number => Number(raw.replace(/[$,\s]/g, ''));
+
+// Map a parsed CSV grid (with a header row) into ImportRow records.
+function rowsToImport(grid: string[][]): ImportRow[] {
+  if (grid.length < 2) return [];
+  const headers = grid[0].map((h) => FIELD_BY_HEADER[h.trim().toLowerCase().replace(/[\s#]+/g, '_')]);
+  return grid.slice(1).map((cells) => {
+    const rec: ImportRow = { vendor: '', invoiceNumber: '', amount: NaN, dueDate: null, gl: '', description: '' };
+    headers.forEach((field, i) => {
+      const value = (cells[i] ?? '').trim();
+      if (field === 'amount') rec.amount = parseAmount(value);
+      else if (field === 'dueDate') rec.dueDate = value || null;
+      else if (field === 'vendor' || field === 'invoiceNumber' || field === 'gl' || field === 'description') {
+        rec[field] = value;
+      }
+    });
+    return rec;
+  });
+}
+
+type PreviewState = { fileName: string; rows: ImportRow[] };
 
 type CheckState = 'on' | 'off' | 'partial';
 
@@ -41,12 +104,11 @@ function Check({ state, onClick }: { state: CheckState; onClick: () => void }) {
   );
 }
 
-type SortKey = 'vendor' | 'amount' | 'due';
-type Sort = { key: SortKey; dir: 'asc' | 'desc' };
+type SortKey = Sort['key'];
 
 export function BillsView({ data }: { data: BillsData }) {
   const router = useRouter();
-  const { tabs: TABS, rows: ROWS } = data;
+  const { tabs: TABS, rows: ROWS, vendorNames, views } = data;
   const openCount = ROWS.filter((r) => !['paid', 'failed'].includes(r.status)).length;
 
   const [tab, setTab] = useState('all');
@@ -58,6 +120,19 @@ export function BillsView({ data }: { data: BillsData }) {
   const [menu, setMenu] = useState<string | null>(null);
   const [visCols, setVisCols] = useState<Set<string>>(() => new Set(COLS.map((c) => c.id)));
   const [toast, setToast] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [viewName, setViewName] = useState('');
+  const [importBusy, startImport] = useTransition();
+  const [viewsBusy, startViews] = useTransition();
+
+  const vendorNameSet = useMemo(
+    () => new Set(vendorNames.map((n) => n.trim().toLowerCase())),
+    [vendorNames],
+  );
+  const flash = (msg: string, ms = 2800) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), ms);
+  };
 
   // filter rows by tab + query
   const rows = useMemo(() => {
@@ -187,15 +262,95 @@ export function BillsView({ data }: { data: BillsData }) {
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === 'string' ? reader.result : '';
-      // Lightweight stub: count non-empty data rows (skip the header line).
-      const dataRows = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-      const count = Math.max(dataRows.length - 1, 0);
-      setToast(`Parsed ${count} rows from ${file.name} — review & confirm`);
-      setTimeout(() => setToast(null), 3200);
+      const parsed = rowsToImport(parseCsv(text));
+      if (parsed.length === 0) {
+        flash(`No rows found in ${file.name}`);
+        return;
+      }
+      setPreview({ fileName: file.name, rows: parsed });
     };
     reader.readAsText(file);
     // Reset so picking the same file again still fires onChange.
     e.target.value = '';
+  };
+
+  // A row imports cleanly when its vendor resolves, it has an invoice #, and a
+  // positive amount. The preview marks the rest; the server skips them too.
+  const rowValid = (r: ImportRow): boolean =>
+    vendorNameSet.has(r.vendor.trim().toLowerCase()) &&
+    r.invoiceNumber.trim() !== '' &&
+    Number.isFinite(r.amount) &&
+    r.amount > 0;
+  const rowIssue = (r: ImportRow): string =>
+    !vendorNameSet.has(r.vendor.trim().toLowerCase()) ? 'Unknown vendor'
+      : r.invoiceNumber.trim() === '' ? 'Missing invoice #'
+      : !(Number.isFinite(r.amount) && r.amount > 0) ? 'Invalid amount'
+      : '';
+
+  const confirmImport = () => {
+    if (!preview) return;
+    const rows = preview.rows;
+    startImport(async () => {
+      const res = await importBills(rows);
+      setPreview(null);
+      router.refresh();
+      flash(
+        res.created > 0
+          ? `Imported ${res.created} bill${res.created !== 1 ? 's' : ''} as draft${res.skipped > 0 ? ` · ${res.skipped} skipped` : ''}`
+          : `Nothing imported · ${res.skipped} row${res.skipped !== 1 ? 's' : ''} had issues`,
+        3400,
+      );
+    });
+  };
+
+  const downloadTemplate = () => {
+    const sample = [
+      'vendor,invoice_number,amount,due_date,gl_account,description',
+      'WEX Fleet Fuel,STMT-0601,12500.00,2026-07-05,Fuel,June fuel statement',
+      'Penske Truck Leasing,PEN-90001,8200.00,2026-07-10,Equipment,Monthly truck lease',
+      'Cintas,CIN-4500,1180.00,2026-07-12,Office,Uniform & mat service',
+    ].join('\n');
+    const blob = new Blob([sample], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bills-import-template.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const currentConfig = (): SavedViewConfig => ({
+    tab, query, sort, filters: [...activeFilters], cols: [...visCols], density,
+  });
+  const applyView = (v: SavedView) => {
+    setTab(v.config.tab);
+    setQuery(v.config.query);
+    setSort(v.config.sort);
+    setActiveFilters(new Set(v.config.filters));
+    setVisCols(new Set(v.config.cols));
+    setDensity(v.config.density);
+    setMenu(null);
+    flash(`Applied “${v.name}”`, 1800);
+  };
+  const saveCurrentView = () => {
+    const name = viewName.trim();
+    if (!name) return;
+    startViews(async () => {
+      await createSavedView(name, currentConfig());
+      setViewName('');
+      setMenu(null);
+      router.refresh();
+      flash(`Saved view “${name}”`);
+    });
+  };
+  const removeView = (id: string, name: string) => {
+    startViews(async () => {
+      await deleteSavedView(id);
+      router.refresh();
+      flash(`Deleted “${name}”`, 1800);
+    });
   };
 
   const show = (id: string) => visCols.has(id);
@@ -215,6 +370,7 @@ export function BillsView({ data }: { data: BillsData }) {
             hidden
             onChange={onImportFile}
           />
+          <button className="btn btn-ghost" onClick={downloadTemplate} title="Download a sample import CSV"><Icon name="file-down" size={15} />Template</button>
           <button className="btn btn-ghost" onClick={() => importInputRef.current?.click()}><Icon name="upload" size={15} />Import</button>
           <button className="btn btn-primary" onClick={() => router.push('/bills/new')}><Icon name="plus" size={15} />New bill</button>
         </div>
@@ -257,10 +413,40 @@ export function BillsView({ data }: { data: BillsData }) {
 
         <div className="ctrl-spacer" />
 
-        <button className="ctrlbtn">
-          <Icon name="bookmark" size={14} />Saved views
-          <Icon name="chevron-down" size={13} />
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button className="ctrlbtn" onClick={() => setMenu(menu === 'views' ? null : 'views')}>
+            <Icon name="bookmark" size={14} />Saved views
+            {views.length > 0 && <span className="ctrl-badge">{views.length}</span>}
+            <Icon name="chevron-down" size={13} />
+          </button>
+          {menu === 'views' && (
+            <div className="menu views-menu" style={{ top: 'calc(100% + 6px)', right: 0, minWidth: 252 }}>
+              <div className="menu-label">Saved views</div>
+              {views.length === 0 && <div className="menu-empty">No saved views yet</div>}
+              {views.map((v) => (
+                <div key={v.id} className="menu-item view-item">
+                  <span className="vi-main" onClick={() => applyView(v)}>
+                    <Icon name="bookmark" size={14} />
+                    <span className="vi-name">{v.name}</span>
+                  </span>
+                  <button className="vi-del" title="Delete view" disabled={viewsBusy} onClick={() => removeView(v.id, v.name)}>
+                    <Icon name="trash-2" size={13} />
+                  </button>
+                </div>
+              ))}
+              <div className="menu-sep" />
+              <div className="view-save">
+                <input
+                  value={viewName}
+                  onChange={(e) => setViewName(e.target.value)}
+                  placeholder="Name this view…"
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveCurrentView(); }}
+                />
+                <button className="vs-btn" disabled={!viewName.trim() || viewsBusy} onClick={saveCurrentView}>Save</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div style={{ position: 'relative' }}>
           <button className="ctrlbtn" onClick={() => setMenu(menu === 'cols' ? null : 'cols')}>
@@ -401,6 +587,67 @@ export function BillsView({ data }: { data: BillsData }) {
           </div>
         </div>
       )}
+
+      {/* CSV import preview */}
+      {preview && (() => {
+        const validCount = preview.rows.filter(rowValid).length;
+        const skipCount = preview.rows.length - validCount;
+        return (
+          <div className="modal-scrim" onClick={() => setPreview(null)}>
+            <div className="import-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="im-head">
+                <div>
+                  <div className="im-title">Import bills</div>
+                  <div className="im-sub">{preview.fileName} · {preview.rows.length} row{preview.rows.length !== 1 ? 's' : ''}</div>
+                </div>
+                <button className="im-x" onClick={() => setPreview(null)} aria-label="Close"><Icon name="x" size={18} /></button>
+              </div>
+              <div className="im-body">
+                <table className="im-table">
+                  <thead>
+                    <tr>
+                      <th className="im-sth" />
+                      <th>Vendor</th>
+                      <th>Invoice #</th>
+                      <th className="num">Amount</th>
+                      <th>Due</th>
+                      <th>GL account</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.rows.map((r, i) => {
+                      const ok = rowValid(r);
+                      const issue = ok ? '' : rowIssue(r);
+                      return (
+                        <tr key={i} className={ok ? '' : 'im-bad'}>
+                          <td className="im-st"><Icon name={ok ? 'check-circle-2' : 'alert-triangle'} size={15} /></td>
+                          <td>
+                            <span className="im-vendor">{r.vendor || <span className="im-muted">—</span>}</span>
+                            {issue && <span className="im-reason">{issue}</span>}
+                          </td>
+                          <td>{r.invoiceNumber || <span className="im-muted">—</span>}</td>
+                          <td className="num">{Number.isFinite(r.amount) ? fmt(r.amount) : <span className="im-muted">—</span>}</td>
+                          <td>{r.dueDate || <span className="im-muted">—</span>}</td>
+                          <td>{r.gl || <span className="im-muted">—</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="im-foot">
+                <button className="im-tmpl" onClick={downloadTemplate}><Icon name="download" size={14} />Download template</button>
+                <span className="im-spacer" />
+                <span className="im-count">{validCount} ready{skipCount > 0 ? ` · ${skipCount} skipped` : ''}</span>
+                <button className="btn btn-ghost" onClick={() => setPreview(null)}>Cancel</button>
+                <button className="btn btn-primary" disabled={validCount === 0 || importBusy} onClick={confirmImport}>
+                  <Icon name="upload" size={15} />Import {validCount} bill{validCount !== 1 ? 's' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* toast */}
       {toast && (

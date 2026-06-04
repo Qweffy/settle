@@ -12,7 +12,7 @@ Settle is a modern **Accounts Payable / Bill Pay** product — where a finance t
 
 A finance team lives in four workflows, and Settle is organized around them:
 
-1. **Intake → Draft.** Bills arrive (upload a PDF, forward to a dedicated AP inbox, or create manually). On the **Capture** screen, an AI pass reads the invoice, pre‑fills a coded draft, and **flags anomalies**; **saving the draft persists a real bill** (line items + flags) straight into the approval queue and opens its cockpit. Manual entry is a full **New bill** form (vendor + line-item GL coding + dates + tax) reachable from the topbar, the bills table, the command palette, or Cmd-N — and the same form **edits** an existing bill from its cockpit (logging an audit event onto the timeline).
+1. **Intake → Draft.** Bills arrive (upload a PDF, forward to a dedicated AP inbox, create manually, or bulk-import a CSV). On the **Capture** screen, an AI pass reads the invoice, pre‑fills a coded draft, and **flags anomalies**; **saving the draft persists a real bill** (line items + flags) straight into the approval queue and opens its cockpit. Manual entry is a full **New bill** form (vendor + line-item GL coding + dates + tax) reachable from the topbar, the bills table, the command palette, or Cmd-N — and the same form **edits** an existing bill from its cockpit (logging an audit event onto the timeline).
 2. **Code → Approve.** The **Bill cockpit** is a 3‑panel workspace — invoice viewer + line‑item GL coding + a unified, auditable **timeline with comments and @‑mentions**. The **AI Bill Review** surfaces issues (surcharge spikes, new fees, missing POs, possible duplicates, vendor bank changes). Approvers sign off from the **Approvals queue**, grouped by urgency.
 3. **Schedule → Pay.** Approved bills get a payment scheduled and then marked paid (simulated rail), with consolidation hints for vendors you pay often.
 4. **Monitor.** The **Dashboard** (scorecards, needs‑review, expected‑but‑missing bills, cash‑out by week, activity feed) and the **AP Aging** report keep the whole thing under control.
@@ -61,7 +61,7 @@ Beyond the core, the build also ships **recurring schedules** (draft the next bi
 - **2‑way accounting sync (QuickBooks/NetSuite)** — realistic in Ramp but not meaningfully mockable in the timebox; the activity feed shows a representative "synced from QuickBooks" event.
 - **Global/FX mass payments + a tax engine (1099/W‑8/VAT)** — deliberately dropped after the competitor benchmark: overkill for a US‑domestic hauler.
 - **Historical series for scorecard deltas/sparklines** — the scorecard *values* are real (live DB aggregates); the small delta % and sparkline are illustrative, since there's no time‑series table yet.
-- **CSV import is a stub** — the bills *Import* button parses and counts a file's rows but doesn't create bills yet, and *Saved views* is a placeholder. Everything else from the plan shipped — recurring schedules, line-item splits, a Settings page, bulk actions, duplicate detection, the approval-rules engine, and keyboard shortcuts.
+- **Live ERP / accounting import** — the bills *Import* ingests a CSV (downloadable template → a validating preview that resolves vendors by name and flags bad rows → draft bills); a 2-way QuickBooks/NetSuite pull stays out of scope per the sync note above. Everything from the plan shipped — CSV import, saved views, recurring schedules, line-item splits, a Settings page, bulk actions, duplicate detection, the approval-rules engine, and keyboard shortcuts.
 
 ---
 
@@ -102,7 +102,7 @@ Three layers, weighted toward end-to-end coverage of the real workflows:
 | --- | --- | --- |
 | **Unit** | Vitest | Pure domain logic, no DB or network — the lifecycle state machine (`lib/status.ts`), the approval-rules engine (`lib/approval-rules.ts`), money/date formatting, and the AI invoice parser's deterministic fallback. ~33 tests, <2s. |
 | **Integration** | _(folded into e2e)_ | The e2e layer drives the real Server Actions and database through the UI, so it *is* the integration layer. A separate mock-DB suite would be brittle against Drizzle and low-signal, so it's deliberately omitted. |
-| **E2E** | Playwright | Key user flows against a production build with a real, seeded database: OCR capture → persisted bill, manual bill creation, the **$50k approval gate** (role-gated, evaluated server-side), bulk mark-paid, duplicate detection, the vendor directory, and navigation + 404s. |
+| **E2E** | Playwright | Key user flows against a production build with a real, seeded database: OCR capture → persisted bill, manual bill creation, **CSV import** (validating preview → draft bills), **saved views** (capture → restore filter state), the **$50k approval gate** (role-gated, evaluated server-side), bulk mark-paid, duplicate detection, the vendor directory, and navigation + 404s. |
 
 ```bash
 npm run test            # unit (Vitest)

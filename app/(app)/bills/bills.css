@@ -137,6 +137,52 @@
   .toast { position: absolute; bottom: 18px; right: 24px; z-index: 70; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; box-shadow: var(--shadow-popover); padding: 11px 14px; font: 500 13px var(--font-ui); color: var(--fg-1); animation: bulkUp .16s ease; }
   .toast .icon { width: 16px; height: 16px; color: var(--paid-solid); }
 
+  /* ============================== SAVED VIEWS */
+  .ctrl-badge { font: 600 10.5px var(--font-ui); min-width: 16px; height: 16px; padding: 0 5px; border-radius: var(--radius-full); background: var(--surface-sunken); border: 1px solid var(--border-1); color: var(--fg-2); display: grid; place-items: center; }
+  .menu-empty { padding: 9px 12px; font: 500 12.5px var(--font-ui); color: var(--fg-3); }
+  .view-item { justify-content: space-between; gap: 6px; }
+  .view-item .vi-main { display: inline-flex; align-items: center; gap: 9px; flex: 1; min-width: 0; cursor: pointer; }
+  .view-item .vi-main .icon { width: 14px; height: 14px; color: var(--fg-3); flex-shrink: 0; }
+  .view-item .vi-name { font: 500 13px var(--font-ui); color: var(--fg-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vi-del { display: grid; place-items: center; width: 24px; height: 24px; border: 0; background: transparent; border-radius: 6px; color: var(--fg-3); cursor: pointer; flex-shrink: 0; transition: background .12s, color .12s; }
+  .vi-del:hover { background: var(--surface-sunken); color: var(--failed-solid); }
+  .vi-del:disabled { opacity: .5; cursor: default; }
+  .view-save { display: flex; align-items: center; gap: 6px; padding: 8px 10px 2px; }
+  .view-save input { flex: 1; min-width: 0; border: 1px solid var(--border-2); border-radius: 7px; background: var(--surface); padding: 6px 9px; font: 400 12.5px var(--font-ui); color: var(--fg-1); outline: 0; transition: border-color .12s, box-shadow .12s; }
+  .view-save input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent); }
+  .view-save input::placeholder { color: var(--fg-3); }
+  .vs-btn { border: 0; border-radius: 7px; background: var(--primary); color: var(--fg-on-accent); font: 600 12.5px var(--font-ui); padding: 6px 12px; cursor: pointer; transition: background .12s, opacity .12s; }
+  .vs-btn:hover:not(:disabled) { background: var(--primary-hover); }
+  .vs-btn:disabled { opacity: .5; cursor: default; }
+
+  /* ============================== IMPORT MODAL */
+  .modal-scrim { position: fixed; inset: 0; z-index: 80; background: color-mix(in srgb, var(--bg-0, #0a0a0a) 55%, transparent); backdrop-filter: blur(2px); display: grid; place-items: center; padding: 24px; animation: scrimIn .14s ease; }
+  @keyframes scrimIn { from { opacity: 0; } }
+  .import-modal { width: min(760px, 100%); max-height: min(76vh, 640px); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-1); border-radius: 14px; box-shadow: var(--shadow-modal); overflow: hidden; animation: bulkUp .16s ease; }
+  .im-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border-1); }
+  .im-title { font: 600 15px var(--font-ui); color: var(--fg-1); }
+  .im-sub { font: 500 12.5px var(--font-ui); color: var(--fg-3); margin-top: 2px; }
+  .im-x { display: grid; place-items: center; width: 30px; height: 30px; border: 0; background: transparent; border-radius: 8px; color: var(--fg-3); cursor: pointer; transition: background .12s, color .12s; }
+  .im-x:hover { background: var(--surface-sunken); color: var(--fg-1); }
+  .im-body { overflow: auto; flex: 1; }
+  .im-table { width: 100%; border-collapse: collapse; }
+  .im-table thead th { position: sticky; top: 0; background: var(--surface-sunken); text-align: left; font: 600 10px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); padding: 9px 14px; border-bottom: 1px solid var(--border-1); white-space: nowrap; }
+  .im-table thead th.num { text-align: right; }
+  .im-table tbody td { padding: 9px 14px; border-bottom: 1px solid var(--border-1); font: 500 12.5px var(--font-ui); color: var(--fg-1); white-space: nowrap; }
+  .im-table tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .im-table .im-st { width: 30px; }
+  .im-table .im-st .icon { width: 15px; height: 15px; color: var(--paid-solid); display: block; }
+  .im-table tr.im-bad .im-st .icon { color: var(--failed-solid); }
+  .im-table tr.im-bad td { color: var(--fg-3); }
+  .im-reason { display: inline-block; margin-left: 8px; font: 600 10.5px var(--font-ui); color: var(--failed-solid); background: color-mix(in srgb, var(--failed-solid) 12%, transparent); padding: 1px 7px; border-radius: var(--radius-full); }
+  .im-muted { color: var(--fg-3); }
+  .im-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--border-1); background: var(--surface-sunken); }
+  .im-tmpl { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--fg-2); font: 500 12.5px var(--font-ui); cursor: pointer; padding: 6px 4px; }
+  .im-tmpl:hover { color: var(--fg-1); }
+  .im-tmpl .icon { width: 14px; height: 14px; color: var(--fg-3); }
+  .im-spacer { flex: 1; }
+  .im-count { font: 500 12.5px var(--font-ui); color: var(--fg-3); white-space: nowrap; }
+
   /* ============================== RESPONSIVE */
   @media (max-width: 680px) {
     .page-head, .tabs, .controls { padding-left: 16px; padding-right: 16px; }

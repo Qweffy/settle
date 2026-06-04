@@ -478,3 +478,71 @@ export async function bulkAdvance(ids: string[], action: BulkAction): Promise<{ 
   revalidateAll();
   return { done, skipped };
 }
+
+export type ImportRow = {
+  vendor: string;
+  invoiceNumber: string;
+  amount: number; // dollars
+  dueDate: string | null;
+  gl: string;
+  description?: string;
+};
+
+// Bulk-create bills from a parsed CSV. Resolves each vendor by name within the
+// demo org (case-insensitive) and creates a draft bill + a single line item, so
+// imports land in the Drafts tab for review rather than straight into approval.
+// Rows with an unknown vendor, blank invoice #, or non-positive amount are
+// skipped. Returns how many were created vs skipped.
+export async function importBills(rows: ImportRow[]): Promise<{ created: number; skipped: number }> {
+  const actor = await getCurrentUserId();
+  const orgVendors = await db.select().from(vendors).where(eq(vendors.orgId, DEMO_ORG));
+  const byName = new Map(orgVendors.map((v) => [v.name.trim().toLowerCase(), v]));
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    const vendor = byName.get(row.vendor.trim().toLowerCase());
+    const amountCents = Math.round(row.amount * 100);
+    if (!vendor || row.invoiceNumber.trim() === '' || !Number.isFinite(amountCents) || amountCents <= 0) {
+      skipped++;
+      continue;
+    }
+
+    const billId = rid('b');
+    const due = row.dueDate ? new Date(row.dueDate) : null;
+    const gl = row.gl.trim() || vendor.defaultGl || null;
+
+    await db.insert(bills).values({
+      id: billId,
+      orgId: vendor.orgId,
+      vendorId: vendor.id,
+      invoiceNumber: row.invoiceNumber.trim(),
+      status: 'draft',
+      reviewStatus: 'clean',
+      ocrStatus: 'none',
+      source: 'manual',
+      dueDate: due && !Number.isNaN(due.getTime()) ? due : null,
+      currency: 'USD',
+      subtotalCents: amountCents,
+      taxCents: 0,
+      totalCents: amountCents,
+      memo: 'Imported from CSV',
+      glAccount: gl,
+      createdBy: actor,
+    });
+    await db.insert(billLineItems).values({
+      id: rid('li'),
+      billId,
+      description: row.description?.trim() || row.gl.trim() || 'Imported line item',
+      amountCents,
+      glLabel: gl,
+      sortOrder: 0,
+    });
+    await logActivity(vendor.orgId, billId, actor, 'created', 'imported this bill from CSV', amountCents);
+    created++;
+  }
+
+  revalidateAll();
+  return { created, skipped };
+}

@@ -1,15 +1,17 @@
 import { db } from '@/db';
-import { bills } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { bills, vendors, savedViews } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
 import { dueLabel, formatShortDate } from '@/lib/dates';
 import { deriveDisplayStatus, type BillLifecycle } from '@/lib/status';
-import type { BillRow, Tab, DueTone } from '@/lib/data/bills';
+import type { BillRow, Tab, DueTone, SavedView } from '@/lib/data/bills';
 import type { StatusKey } from '@/lib/data/shell';
 
 export type BillsData = {
   tabs: Tab[];
   rows: BillRow[];
+  vendorNames: string[];
+  views: SavedView[];
 };
 
 // Which lifecycle buckets (tabs) a row belongs to. `all` always; `review`
@@ -42,10 +44,14 @@ function dueHintFor(
 export async function getBillsData(): Promise<BillsData> {
   const now = DEMO_NOW;
 
-  const billRows = await db.query.bills.findMany({
-    where: eq(bills.orgId, DEMO_ORG),
-    with: { vendor: true, flags: true, payments: true },
-  });
+  const [billRows, orgVendors, viewRows] = await Promise.all([
+    db.query.bills.findMany({
+      where: eq(bills.orgId, DEMO_ORG),
+      with: { vendor: true, flags: true, payments: true },
+    }),
+    db.select({ name: vendors.name }).from(vendors).where(eq(vendors.orgId, DEMO_ORG)),
+    db.select().from(savedViews).where(eq(savedViews.orgId, DEMO_ORG)).orderBy(desc(savedViews.createdAt)),
+  ]);
 
   const rows: BillRow[] = billRows.map((b) => {
     const openFlags = b.flags.filter((f) => f.status === 'open');
@@ -91,5 +97,10 @@ export async function getBillsData(): Promise<BillsData> {
     { id: 'review', label: 'Needs review', count: count('review') },
   ];
 
-  return { tabs, rows };
+  return {
+    tabs,
+    rows,
+    vendorNames: orgVendors.map((v) => v.name),
+    views: viewRows.map((v) => ({ id: v.id, name: v.name, config: v.config })),
+  };
 }
