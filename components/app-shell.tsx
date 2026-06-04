@@ -66,11 +66,11 @@ function Sidebar() {
   );
 }
 
-function Topbar({ onSearch }: { onSearch: () => void }) {
+function Topbar({ onSearch, initialRoleIdx }: { onSearch: () => void; initialRoleIdx: number }) {
   const router = useRouter();
   const [menu, setMenu] = useState<'entity' | 'role' | null>(null);
   const [entityIdx, setEntityIdx] = useState(0);
-  const [roleIdx, setRoleIdx] = useState(0);
+  const [roleIdx, setRoleIdx] = useState(initialRoleIdx);
   const { resolvedTheme, setTheme } = useTheme();
 
   const entity = ENTITIES[entityIdx];
@@ -283,7 +283,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, initialRoleIdx = 0 }: { children: React.ReactNode; initialRoleIdx?: number }) {
   const router = useRouter();
   const [cmdkOpen, setCmdkOpen] = useState(false);
 
@@ -307,7 +307,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app">
       <Sidebar />
       <div className="main">
-        <Topbar onSearch={() => setCmdkOpen(true)} />
+        <Topbar onSearch={() => setCmdkOpen(true)} initialRoleIdx={initialRoleIdx} />
         <div className="content">{children}</div>
       </div>
       {cmdkOpen && <CommandPalette onClose={() => setCmdkOpen(false)} />}

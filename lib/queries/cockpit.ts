@@ -2,6 +2,8 @@ import { db } from '@/db';
 import { bills, users, activityLog } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { requiredApproval, roleSatisfies } from '@/lib/approval-rules';
+import { getCurrentUserId } from '@/lib/actions/session';
 import type {
   Bill,
   Line,
@@ -47,6 +49,7 @@ export type CockpitData = {
   history: HistoryItem[];
   timeline: TimelineNode[];
   roles: Person[];
+  approvalGate: { requiredRole: string; label: string; canApprove: boolean } | null;
 };
 
 // "Jun 9, 2026"
@@ -327,7 +330,22 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
     desc: u.description ?? '',
   }));
 
-  return { bill: billShape, lines, totals, flags, history, timeline, roles };
+  /* ---------- approval-rules gate ---------- */
+  // Large bills route to a more senior role. Resolve the current actor's role to
+  // decide whether they may approve right now (drives the cockpit's gate chip).
+  const gate = requiredApproval(bill.totalCents);
+  let approvalGate: CockpitData['approvalGate'] = null;
+  if (gate) {
+    const actorId = await getCurrentUserId();
+    const actorRole = userRows.find((u) => u.id === actorId)?.role ?? 'clerk';
+    approvalGate = {
+      requiredRole: gate.requiredRole,
+      label: gate.label,
+      canApprove: roleSatisfies(actorRole, gate.requiredRole),
+    };
+  }
+
+  return { bill: billShape, lines, totals, flags, history, timeline, roles, approvalGate };
 }
 
 // Resolve mention names into the comment body. The seed stores the prose

@@ -19,6 +19,7 @@ import {
   type Person,
 } from '@/lib/data/cockpit';
 import type { CockpitData } from '@/lib/queries/cockpit';
+import { roleLabel } from '@/lib/approval-rules';
 import './cockpit.css';
 
 type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
@@ -58,6 +59,7 @@ function BillHeader({
   bill: b,
   flagCount,
   busy,
+  approvalGate,
   onApprove,
   onReject,
   onSchedule,
@@ -65,10 +67,12 @@ function BillHeader({
   bill: Bill;
   flagCount: number;
   busy: boolean;
+  approvalGate: CockpitData['approvalGate'];
   onApprove: () => void;
   onReject: () => void;
   onSchedule: () => void;
 }) {
+  const blockedByGate = approvalGate != null && !approvalGate.canApprove;
   return (
     <div className="billhead">
       <div className="bh-row">
@@ -93,10 +97,26 @@ function BillHeader({
         <StatusPill status={b.status} label={b.statusLabel} />
         <span className="due-chip"><Icon name="calendar-clock" size={14} />{b.due} · {b.dueHint}</span>
         <div className="bh-actions">
+          {approvalGate && (
+            <span
+              className={'gate-chip' + (approvalGate.canApprove ? ' met' : '')}
+              title={approvalGate.label}
+            >
+              <Icon name={approvalGate.canApprove ? 'shield-check' : 'shield-alert'} size={13} />
+              Requires {roleLabel(approvalGate.requiredRole)}
+            </span>
+          )}
           <button className="btn btn-danger" onClick={onReject} disabled={busy}><Icon name="x" size={15} />Reject</button>
           <Link href={`/bills/${b.id}/edit`} className="btn btn-ghost"><Icon name="pencil" size={15} />Edit</Link>
           <button className="btn btn-ghost" onClick={onSchedule} disabled={busy}><Icon name="calendar-clock" size={15} />Schedule payment</button>
-          <button className="btn btn-primary" onClick={onApprove} disabled={busy}><Icon name="check" size={15} />Approve</button>
+          <button
+            className="btn btn-primary"
+            onClick={onApprove}
+            disabled={busy || blockedByGate}
+            title={blockedByGate ? `Switch to a ${roleLabel(approvalGate.requiredRole)} in the top-right to approve` : undefined}
+          >
+            <Icon name="check" size={15} />Approve
+          </button>
         </div>
       </div>
       {b.flagged && (
@@ -559,6 +579,7 @@ export function CockpitView({ data }: { data: CockpitData }) {
           bill={bill}
           flagCount={flags.length}
           busy={busy}
+          approvalGate={data.approvalGate}
           onApprove={handleApprove}
           onReject={handleReject}
           onSchedule={handleSchedule}

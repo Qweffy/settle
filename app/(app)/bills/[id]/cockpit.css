@@ -37,6 +37,11 @@
   .due-chip { display: inline-flex; align-items: center; gap: 6px; font: 500 12.5px var(--font-ui); color: var(--fg-2); }
   .due-chip .icon { width: 14px; height: 14px; color: var(--overdue-ink); }
 
+  /* approval-rules gate chip — amber when the actor can't yet approve, green once met */
+  .gate-chip { display: inline-flex; align-items: center; gap: 5px; font: 600 11.5px var(--font-ui); color: var(--review-ink); background: var(--review-bg); border: 1px solid color-mix(in srgb, var(--review-solid) 30%, transparent); padding: 4px 9px; border-radius: var(--radius-full); white-space: nowrap; cursor: default; }
+  .gate-chip .icon { width: 13px; height: 13px; flex-shrink: 0; }
+  .gate-chip.met { color: var(--paid-ink); background: var(--paid-bg); border-color: color-mix(in srgb, var(--paid-solid) 30%, transparent); }
+
   /* needs-review banner */
   .banner { display: flex; align-items: center; gap: 11px; padding: 10px 24px; background: var(--review-bg); border-top: 1px solid color-mix(in srgb, var(--review-solid) 24%, transparent); }
   .banner .bn-ic { width: 18px; height: 18px; color: var(--review-ink); flex-shrink: 0; }

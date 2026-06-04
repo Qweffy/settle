@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
-import { createBill, updateBill } from '@/lib/actions/bills';
+import { createBill, updateBill, checkDuplicate } from '@/lib/actions/bills';
 import type { NewBillFormData, BillFormInitial } from '@/lib/queries/new-bill';
 import './bill-form.css';
 
@@ -31,6 +31,7 @@ export function BillForm({
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? '');
   const [memo, setMemo] = useState(initial?.memo ?? '');
   const [tax, setTax] = useState(initial?.tax ?? '');
+  const [dupe, setDupe] = useState<{ invoiceNumber: string; amount: number; statusLabel: string } | null>(null);
   const [lines, setLines] = useState<Line[]>(() =>
     initial && initial.lines.length > 0
       ? initial.lines.map((l, i) => ({ key: `l${i}`, ...l }))
@@ -53,6 +54,18 @@ export function BillForm({
 
   const validLines = lines.filter((l) => l.description.trim() !== '' && num(l.amount) > 0);
   const canSave = vendorId !== '' && invoiceNumber.trim() !== '' && validLines.length > 0;
+
+  // Non-blocking duplicate check: when we have both a vendor and an invoice #,
+  // ask the server whether this vendor already has that invoice on file.
+  const runDupeCheck = async () => {
+    const inv = invoiceNumber.trim();
+    if (vendorId === '' || inv === '') {
+      setDupe(null);
+      return;
+    }
+    const found = await checkDuplicate(vendorId, inv, editId);
+    setDupe(found ? { invoiceNumber: found.invoiceNumber, amount: found.amount, statusLabel: found.statusLabel } : null);
+  };
 
   const handleSave = () => {
     if (!canSave) return;
@@ -103,7 +116,7 @@ export function BillForm({
                 <label className="nb-field full">
                   <span className="nb-l">Vendor</span>
                   <div className="nb-selwrap">
-                    <select className="nb-input" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                    <select className="nb-input" value={vendorId} onChange={(e) => { setVendorId(e.target.value); setDupe(null); }}>
                       <option value="" disabled>Select a vendor…</option>
                       {data.vendors.map((v) => (
                         <option key={v.id} value={v.id}>{v.name}</option>
@@ -114,7 +127,7 @@ export function BillForm({
                 </label>
                 <label className="nb-field">
                   <span className="nb-l">Invoice #</span>
-                  <input className="nb-input mono" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-1234" />
+                  <input className="nb-input mono" value={invoiceNumber} onChange={(e) => { setInvoiceNumber(e.target.value); setDupe(null); }} onBlur={() => void runDupeCheck()} placeholder="INV-1234" />
                 </label>
                 <label className="nb-field">
                   <span className="nb-l">Memo</span>
@@ -188,6 +201,16 @@ export function BillForm({
               </div>
             </div>
           </div>
+
+          {/* Duplicate warning (non-blocking) */}
+          {dupe && (
+            <div className="nb-dupe" role="status">
+              <Icon name="shield-alert" size={16} className="nb-dupe-ic" />
+              <span className="nb-dupe-text">
+                <b>Heads up</b> — {dupe.invoiceNumber} from this vendor already exists ({fmt(dupe.amount)} · {dupe.statusLabel}).
+              </span>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="nb-actions">

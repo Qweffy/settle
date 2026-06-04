@@ -1,12 +1,14 @@
 'use server';
 
 import { randomUUID } from 'crypto';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, vendors } from '@/db/schema';
+import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, vendors, users } from '@/db/schema';
 import { assertTransition, type BillLifecycle } from '@/lib/status';
 import type { OcrExtraction, OcrFlag } from '@/lib/ocr';
+import { DEMO_ORG } from '@/lib/demo';
+import { requiredApproval, roleSatisfies, roleLabel } from '@/lib/approval-rules';
 import { getCurrentUserId } from './session';
 
 type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
@@ -25,6 +27,24 @@ async function loadBill(billId: string) {
   if (!b) throw new Error(`Bill not found: ${billId}`);
   return b;
 }
+
+// The role of whoever is currently acting (drives the approval gate). Falls back
+// to 'clerk' — the least-privileged role — if the actor row can't be resolved.
+async function loadActorRole(actorId: string): Promise<string> {
+  const [u] = await db.select({ role: users.role }).from(users).where(eq(users.id, actorId));
+  return u?.role ?? 'clerk';
+}
+
+// Friendly status labels for the duplicate-bill notice.
+const DUPLICATE_STATUS_LABEL: Record<string, string> = {
+  draft: 'draft',
+  pending_approval: 'in approval',
+  approved: 'approved',
+  scheduled: 'scheduled',
+  paid: 'paid',
+  rejected: 'rejected',
+  void: 'void',
+};
 
 async function logActivity(
   orgId: string,
@@ -63,6 +83,14 @@ export async function approveBill(billId: string) {
   const b = await loadBill(billId);
   assertTransition(b.status as BillLifecycle, 'approved');
   const actor = await getCurrentUserId();
+  // Approval-rules gate: large bills require a more senior role to sign off.
+  const gate = requiredApproval(b.totalCents);
+  if (gate) {
+    const actorRole = await loadActorRole(actor);
+    if (!roleSatisfies(actorRole, gate.requiredRole)) {
+      throw new Error(`This bill needs ${roleLabel(gate.requiredRole)} approval`);
+    }
+  }
   await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: new Date(), updatedAt: new Date() }).where(eq(bills.id, billId));
   await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'approve' });
   await logActivity(b.orgId, billId, actor, 'approved', 'approved', b.totalCents);
@@ -77,6 +105,41 @@ export async function rejectBill(billId: string, note?: string) {
   await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'reject', note: note ?? null });
   await logActivity(b.orgId, billId, actor, 'rejected', 'rejected', null);
   revalidateAll();
+}
+
+// Find a prior bill from the same vendor with the same invoice number — used by
+// the bill form to warn (non-blocking) about a likely duplicate before submit.
+// Matches within the demo org, trims invoice numbers on both sides, and ignores
+// the bill being edited.
+export async function checkDuplicate(
+  vendorId: string,
+  invoiceNumber: string,
+  excludeBillId?: string,
+): Promise<{ id: string; invoiceNumber: string; amount: number; statusLabel: string } | null> {
+  const target = invoiceNumber.trim();
+  if (vendorId === '' || target === '') return null;
+
+  const candidates = await db
+    .select({
+      id: bills.id,
+      invoiceNumber: bills.invoiceNumber,
+      totalCents: bills.totalCents,
+      status: bills.status,
+    })
+    .from(bills)
+    .where(and(eq(bills.orgId, DEMO_ORG), eq(bills.vendorId, vendorId)));
+
+  const match = candidates.find(
+    (c) => c.id !== excludeBillId && c.invoiceNumber.trim() === target,
+  );
+  if (!match) return null;
+
+  return {
+    id: match.id,
+    invoiceNumber: match.invoiceNumber,
+    amount: match.totalCents / 100,
+    statusLabel: DUPLICATE_STATUS_LABEL[match.status] ?? match.status,
+  };
 }
 
 export async function addComment(billId: string, body: string, mentions: string[] = []) {
@@ -347,6 +410,9 @@ export type BulkAction = 'submit' | 'approve' | 'schedule' | 'pay';
 // in the right starting state. Returns how many advanced vs were skipped.
 export async function bulkAdvance(ids: string[], action: BulkAction): Promise<{ done: number; skipped: number }> {
   const actor = await getCurrentUserId();
+  // Resolve the actor's role once — the approval gate applies to every bill in
+  // an 'approve' batch, skipping any the actor isn't senior enough to sign off.
+  const actorRole = action === 'approve' ? await loadActorRole(actor) : 'clerk';
   const now = new Date();
   let done = 0;
   let skipped = 0;
@@ -358,7 +424,7 @@ export async function bulkAdvance(ids: string[], action: BulkAction): Promise<{ 
       await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'submit' });
       await logActivity(b.orgId, id, actor, 'submitted', 'submitted for approval', null);
       done++;
-    } else if (action === 'approve' && b.status === 'pending_approval') {
+    } else if (action === 'approve' && b.status === 'pending_approval' && roleSatisfies(actorRole, requiredApproval(b.totalCents)?.requiredRole ?? 'approver')) {
       await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: now, updatedAt: now }).where(eq(bills.id, id));
       await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'approve' });
       await logActivity(b.orgId, id, actor, 'approved', 'approved', b.totalCents);
