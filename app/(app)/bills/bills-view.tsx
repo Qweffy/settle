@@ -16,6 +16,7 @@ import {
   type SavedViewConfig,
 } from '@/lib/data/bills';
 import type { BillsData } from '@/lib/queries/bills';
+import { Check, type CheckState } from '@/components/check';
 import './bills.css';
 
 // CSV header → ImportRow field. A few common aliases are accepted per column.
@@ -77,8 +78,6 @@ function rowsToImport(grid: string[][]): ImportRow[] {
 
 type PreviewState = { fileName: string; rows: ImportRow[] };
 
-type CheckState = 'on' | 'off' | 'partial';
-
 function StatusPill({ status }: { status: StatusKey }) {
   const s = STATUS[status];
   if (!s) return null;
@@ -86,20 +85,6 @@ function StatusPill({ status }: { status: StatusKey }) {
     <span className="pill" style={{ background: `var(${s.bg})`, color: `var(${s.ink})` }}>
       <span className="dot" style={{ background: `var(${s.solid})` }} />
       {s.label}
-    </span>
-  );
-}
-
-function Check({ state, onClick }: { state: CheckState; onClick: () => void }) {
-  return (
-    <span
-      className={'cbox' + (state === 'on' ? ' on' : state === 'partial' ? ' partial' : '')}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      <Icon name={state === 'partial' ? 'minus' : 'check'} size={12} />
     </span>
   );
 }

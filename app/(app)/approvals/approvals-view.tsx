@@ -7,24 +7,9 @@ import { fmt } from '@/lib/format';
 import { approveBill, rejectBill } from '@/lib/actions/bills';
 import type { ActionResult } from '@/lib/result';
 import { GROUPS, SEV, type ApprovalBill } from '@/lib/data/approvals';
+import { Check, type CheckState } from '@/components/check';
 import type { ApprovalsData } from '@/lib/queries/approvals';
 import './approvals.css';
-
-type CheckState = 'on' | 'partial' | 'off';
-
-function Check({ state, onClick }: { state: CheckState; onClick: () => void }) {
-  return (
-    <span
-      className={'cbox' + (state === 'on' ? ' on' : state === 'partial' ? ' partial' : '')}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      <Icon name={state === 'partial' ? 'minus' : 'check'} size={12} />
-    </span>
-  );
-}
 
 function ARow({
   b,
