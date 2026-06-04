@@ -276,3 +276,67 @@ export async function createBill(input: {
   revalidateAll();
   return billId;
 }
+
+// Update an existing bill's fields + line items (from the Edit form).
+export async function updateBill(
+  billId: string,
+  input: {
+    vendorId: string;
+    invoiceNumber: string;
+    issueDate: string | null;
+    dueDate: string | null;
+    memo: string | null;
+    taxCents: number;
+    lineItems: NewBillLine[];
+  },
+): Promise<string> {
+  const b = await loadBill(billId);
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
+  if (!vendor) throw new Error(`Vendor not found: ${input.vendorId}`);
+  const actor = await getCurrentUserId();
+
+  const parseDate = (s: string | null): Date | null => {
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const subtotalCents = input.lineItems.reduce((sum, l) => sum + l.amountCents, 0);
+  const totalCents = subtotalCents + input.taxCents;
+
+  await db
+    .update(bills)
+    .set({
+      vendorId: vendor.id,
+      invoiceNumber: input.invoiceNumber,
+      issueDate: parseDate(input.issueDate),
+      dueDate: parseDate(input.dueDate),
+      memo: input.memo,
+      taxCents: input.taxCents,
+      subtotalCents,
+      totalCents,
+      glAccount: input.lineItems[0]?.glLabel ?? vendor.defaultGl ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(bills.id, billId));
+
+  // Replace line items wholesale — simplest correct strategy for a small set.
+  await db.delete(billLineItems).where(eq(billLineItems.billId, billId));
+  if (input.lineItems.length > 0) {
+    await db.insert(billLineItems).values(
+      input.lineItems.map((l, i) => ({
+        id: rid('li'),
+        billId,
+        description: l.description,
+        quantity: l.quantity,
+        unitPriceCents: l.unitPriceCents,
+        amountCents: l.amountCents,
+        glLabel: l.glLabel,
+        sortOrder: i,
+      })),
+    );
+  }
+
+  await logActivity(b.orgId, billId, actor, 'edited', 'edited this bill', totalCents);
+  revalidateAll();
+  return billId;
+}

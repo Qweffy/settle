@@ -58,7 +58,6 @@ function BillHeader({
   bill: b,
   flagCount,
   busy,
-  onAction,
   onApprove,
   onReject,
   onSchedule,
@@ -66,7 +65,6 @@ function BillHeader({
   bill: Bill;
   flagCount: number;
   busy: boolean;
-  onAction: (msg: string) => void;
   onApprove: () => void;
   onReject: () => void;
   onSchedule: () => void;
@@ -96,7 +94,7 @@ function BillHeader({
         <span className="due-chip"><Icon name="calendar-clock" size={14} />{b.due} · {b.dueHint}</span>
         <div className="bh-actions">
           <button className="btn btn-danger" onClick={onReject} disabled={busy}><Icon name="x" size={15} />Reject</button>
-          <button className="btn btn-ghost" onClick={() => onAction('Edit mode')}><Icon name="pencil" size={15} />Edit</button>
+          <Link href={`/bills/${b.id}/edit`} className="btn btn-ghost"><Icon name="pencil" size={15} />Edit</Link>
           <button className="btn btn-ghost" onClick={onSchedule} disabled={busy}><Icon name="calendar-clock" size={15} />Schedule payment</button>
           <button className="btn btn-primary" onClick={onApprove} disabled={busy}><Icon name="check" size={15} />Approve</button>
         </div>
@@ -561,7 +559,6 @@ export function CockpitView({ data }: { data: CockpitData }) {
           bill={bill}
           flagCount={flags.length}
           busy={busy}
-          onAction={showToast}
           onApprove={handleApprove}
           onReject={handleReject}
           onSchedule={handleSchedule}

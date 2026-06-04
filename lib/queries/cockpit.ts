@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { bills, users } from '@/db/schema';
+import { bills, users, activityLog } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
 import type {
@@ -93,6 +93,12 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
   // Org users → drive @-mentions in the composer + actor lookups.
   const userRows = await db.select().from(users).where(eq(users.orgId, DEMO_ORG));
   const userById = new Map(userRows.map((u) => [u.id, u]));
+
+  // Manual edits aren't synthetic timeline nodes — pull them from the audit log.
+  const editEvents = await db
+    .select()
+    .from(activityLog)
+    .where(and(eq(activityLog.billId, bill.id), eq(activityLog.type, 'edited')));
 
   // Vendor's prior invoices → the history strip.
   const priorRows = await db.query.bills.findMany({
@@ -273,6 +279,23 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
         time: timelineStamp(cm.createdAt),
         body: buildBody(cm.body, mentionNames),
       } satisfies TimelineComment,
+    });
+  }
+
+  // manual edits (from the audit log — not a synthetic node)
+  for (const ev of editEvents) {
+    const editor = ev.actorId ? userById.get(ev.actorId) : undefined;
+    entries.push({
+      at: ev.createdAt.getTime(),
+      node: {
+        id: ev.id,
+        kind: 'event',
+        icon: 'pencil',
+        who: editor?.name ?? 'Someone',
+        mono: editor?.mono ?? '?',
+        text: 'edited this bill',
+        time: timelineStamp(ev.createdAt),
+      } satisfies TimelineEvent,
     });
   }
 

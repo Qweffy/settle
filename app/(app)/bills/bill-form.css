@@ -1,5 +1,5 @@
-/* New bill — manual create form, scoped under .screen-new-bill */
-.screen-new-bill {
+/* Bill form — manual create + edit, scoped under .screen-bill-form */
+.screen-bill-form {
   .frame { max-width: 980px; margin: 0 auto; padding: 26px 28px 56px; }
 
   .nb-head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }

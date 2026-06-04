@@ -5,27 +5,37 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
-import { createBill } from '@/lib/actions/bills';
-import type { NewBillFormData } from '@/lib/queries/new-bill';
-import './new-bill.css';
+import { createBill, updateBill } from '@/lib/actions/bills';
+import type { NewBillFormData, BillFormInitial } from '@/lib/queries/new-bill';
+import './bill-form.css';
 
 type Line = { key: string; description: string; qty: string; unit: string; amount: string; glLabel: string };
 
-export function NewBillView({ data }: { data: NewBillFormData }) {
+export function BillForm({
+  data,
+  initial,
+  editId,
+}: {
+  data: NewBillFormData;
+  initial?: BillFormInitial;
+  editId?: string;
+}) {
   const router = useRouter();
-  const seq = useRef(1);
   const firstGl = data.glAccounts[0]?.name ?? '';
+  const seq = useRef(initial?.lines.length ?? 1);
   const makeLine = (): Line => ({ key: `l${seq.current++}`, description: '', qty: '', unit: '', amount: '', glLabel: firstGl });
 
-  const [vendorId, setVendorId] = useState('');
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [issueDate, setIssueDate] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [memo, setMemo] = useState('');
-  const [tax, setTax] = useState('');
-  const [lines, setLines] = useState<Line[]>(() => [
-    { key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl },
-  ]);
+  const [vendorId, setVendorId] = useState(initial?.vendorId ?? '');
+  const [invoiceNumber, setInvoiceNumber] = useState(initial?.invoiceNumber ?? '');
+  const [issueDate, setIssueDate] = useState(initial?.issueDate ?? '');
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? '');
+  const [memo, setMemo] = useState(initial?.memo ?? '');
+  const [tax, setTax] = useState(initial?.tax ?? '');
+  const [lines, setLines] = useState<Line[]>(() =>
+    initial && initial.lines.length > 0
+      ? initial.lines.map((l, i) => ({ key: `l${i}`, ...l }))
+      : [{ key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl }],
+  );
   const [saving, startSave] = useTransition();
 
   const num = (s: string) => {
@@ -47,7 +57,7 @@ export function NewBillView({ data }: { data: NewBillFormData }) {
   const handleSave = () => {
     if (!canSave) return;
     startSave(async () => {
-      const newId = await createBill({
+      const payload = {
         vendorId,
         invoiceNumber: invoiceNumber.trim(),
         issueDate: issueDate || null,
@@ -61,19 +71,23 @@ export function NewBillView({ data }: { data: NewBillFormData }) {
           amountCents: Math.round(num(l.amount) * 100),
           glLabel: l.glLabel,
         })),
-      });
-      router.push(`/bills/${newId}`);
+      };
+      const id = editId ? await updateBill(editId, payload) : await createBill(payload);
+      router.push(`/bills/${id}`);
     });
   };
 
+  const isEdit = editId != null;
+  const backHref = isEdit ? `/bills/${editId}` : '/bills';
+
   return (
-    <div className="screen-new-bill">
+    <div className="screen-bill-form">
       <div className="frame">
         <div className="nb-head">
-          <Link href="/bills" className="nb-back" aria-label="Back to bills"><Icon name="chevron-left" size={16} /></Link>
+          <Link href={backHref} className="nb-back" aria-label="Back"><Icon name="chevron-left" size={16} /></Link>
           <div className="nb-titles">
-            <h1>New bill</h1>
-            <div className="nb-sub">Enter a bill and route it for approval · Summit Waste Services</div>
+            <h1>{isEdit ? 'Edit bill' : 'New bill'}</h1>
+            <div className="nb-sub">{isEdit ? 'Update this bill · Summit Waste Services' : 'Enter a bill and route it for approval · Summit Waste Services'}</div>
           </div>
         </div>
 
@@ -179,16 +193,16 @@ export function NewBillView({ data }: { data: NewBillFormData }) {
           <div className="nb-actions">
             <span className="nb-hint">
               {canSave ? (
-                <><Icon name="check" size={13} style={{ color: 'var(--paid-ink)' }} />Ready to submit for approval</>
+                <><Icon name="check" size={13} style={{ color: 'var(--paid-ink)' }} />{isEdit ? 'Ready to save changes' : 'Ready to submit for approval'}</>
               ) : (
                 <><Icon name="info" size={13} />Pick a vendor, add an invoice # and at least one line with an amount</>
               )}
             </span>
             <span className="spacer" />
-            <Link href="/bills" className="btn btn-ghost">Cancel</Link>
+            <Link href={backHref} className="btn btn-ghost">Cancel</Link>
             <button className="btn btn-primary" onClick={handleSave} disabled={!canSave || saving}>
               <Icon name={saving ? 'loader' : 'check'} size={15} className={saving ? 'spin' : ''} />
-              {saving ? 'Creating…' : 'Create & submit for approval'}
+              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create & submit for approval'}
             </button>
           </div>
         </div>
