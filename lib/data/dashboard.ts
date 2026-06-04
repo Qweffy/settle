@@ -49,7 +49,17 @@ export const CASHOUT: CashOutWeek[] = [
   { wk: 'Jul 7', amount: 61500 },
 ];
 
-export type ActivityType = 'approved' | 'scheduled' | 'commented' | 'synced' | 'created' | 'failed';
+export type ActivityType =
+  | 'approved'
+  | 'scheduled'
+  | 'commented'
+  | 'synced'
+  | 'created'
+  | 'failed'
+  | 'submitted'
+  | 'rejected'
+  | 'paid'
+  | 'edited';
 export type ActivityItem = {
   type: ActivityType;
   who: string;
@@ -85,6 +95,13 @@ export const ACT_ICON: Record<ActivityType, { icon: string; color: string }> = {
   synced: { icon: 'refresh-cw', color: '--approval-solid' },
   created: { icon: 'file-plus-2', color: '--fg-3' },
   failed: { icon: 'alert-triangle', color: '--failed-solid' },
+  submitted: { icon: 'send-horizontal', color: '--approval-solid' },
+  rejected: { icon: 'circle-x', color: '--failed-solid' },
+  paid: { icon: 'banknote', color: '--paid-solid' },
+  edited: { icon: 'pencil', color: '--fg-3' },
 };
+
+// Defensive fallback so an unmapped activity type can never crash the feed.
+export const ACT_ICON_FALLBACK = { icon: 'circle', color: '--fg-3' } as const;
 
 export type { StatusKey };

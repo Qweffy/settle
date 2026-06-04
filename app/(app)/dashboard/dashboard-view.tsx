@@ -6,6 +6,7 @@ import { fmt } from '@/lib/format';
 import {
   SEV,
   ACT_ICON,
+  ACT_ICON_FALLBACK,
   type Score,
   type ActivityItem,
   type ReviewItem,
@@ -147,7 +148,7 @@ function Activity({ items }: { items: ActivityItem[] }) {
       <div className="panel-head"><span className="pt">Recent activity</span><span className="pa">View all<Icon name="arrow-right" size={13} /></span></div>
       <div className="activity">
         {items.map((a, i) => {
-          const ic = ACT_ICON[a.type];
+          const ic = ACT_ICON[a.type] ?? ACT_ICON_FALLBACK;
           return (
             <div className="act-item" key={i}>
               <span className="act-ic"><Icon name={ic.icon} size={15} style={{ color: `var(${ic.color})` }} /></span>
