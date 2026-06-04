@@ -80,6 +80,16 @@
   .nb-addsplit .icon { width: 12px; height: 12px; }
   .nb-splithint { font: 500 11.5px var(--font-ui); color: var(--review-ink); font-variant-numeric: tabular-nums; }
   .nb-splithint.ok { color: var(--paid-ink); }
+  /* allocation templates (apply / save) */
+  .nb-splitfoot-row .nb-splithint { margin-left: auto; }
+  .nb-tmpl-pick { position: relative; display: inline-flex; align-items: center; }
+  .nb-tmpl-select { appearance: none; -webkit-appearance: none; font: 600 11.5px var(--font-ui); color: var(--fg-2); background: transparent; border: 1px solid var(--border-2); border-radius: 7px; padding: 5px 24px 5px 10px; cursor: pointer; transition: border-color .12s, color .12s; }
+  .nb-tmpl-select:hover { color: var(--fg-1); border-color: var(--fg-3); }
+  .nb-tmpl-pick .nb-selchev { position: absolute; right: 8px; pointer-events: none; color: var(--fg-3); }
+  .nb-tmpl-save { font: 600 11.5px var(--font-ui); color: var(--fg-2); background: transparent; border: 1px solid var(--border-2); border-radius: 7px; padding: 5px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: background .12s, color .12s, border-color .12s; }
+  .nb-tmpl-save:hover:not(:disabled) { color: var(--fg-1); border-color: var(--fg-3); background: var(--surface-sunken); }
+  .nb-tmpl-save:disabled { opacity: .45; cursor: default; }
+  .nb-tmpl-save .icon { width: 12px; height: 12px; }
 
   .nb-addline { margin-top: 12px; font: 600 12.5px var(--font-ui); color: var(--primary); background: transparent; border: 1px dashed var(--border-2); border-radius: 8px; padding: 9px 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; transition: background .12s, border-color .12s; }
   .nb-addline:hover { background: var(--surface-sunken); border-color: var(--primary); }

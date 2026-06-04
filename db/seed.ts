@@ -182,6 +182,7 @@ const nid = (p: string) => `${p}-${(++seq).toString().padStart(4, '0')}`;
 
 async function main() {
   console.info('Clearing existing data…');
+  await db.delete(s.allocationTemplates);
   await db.delete(s.savedViews);
   await db.delete(s.activityLog);
   await db.delete(s.recurringBillTemplates);
@@ -284,6 +285,18 @@ async function main() {
       nextRunDate: day(r.nextRun), lastGeneratedAt: null, active: 'active',
     })),
   );
+
+  console.info('Seeding allocation templates…');
+  await db.insert(s.allocationTemplates).values([
+    {
+      id: nid('alloc'), orgId: ORG, vendorId: null, name: 'Fuel + maintenance (50 / 50)',
+      lines: [{ glLabel: 'Fuel', percentBps: 5000 }, { glLabel: 'Fleet Maintenance', percentBps: 5000 }], createdBy: 'user-dana',
+    },
+    {
+      id: nid('alloc'), orgId: ORG, vendorId: 'v-wex', name: 'WEX — fuel & card fees',
+      lines: [{ glLabel: 'Fuel', percentBps: 9300 }, { glLabel: 'Office', percentBps: 700 }], createdBy: 'user-dana',
+    },
+  ]);
 
   console.info('✓ Seed complete.');
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import { createBill, updateBill, checkDuplicate } from '@/lib/actions/bills';
+import { createAllocationTemplate } from '@/lib/actions/allocation-templates';
 import type { NewBillFormData, BillFormInitial } from '@/lib/queries/new-bill';
 import './bill-form.css';
 
@@ -51,6 +52,7 @@ export function BillForm({
       : [{ key: 'l0', description: '', qty: '', unit: '', amount: '', glLabel: firstGl, kind: 'expense' as const, splits: [] }],
   );
   const [saving, startSave] = useTransition();
+  const [savingTemplate, startTemplate] = useTransition();
 
   const num = (s: string) => {
     const n = parseFloat(s);
@@ -76,6 +78,36 @@ export function BillForm({
     mapSplits(lineKey, (splits) => splits.filter((s) => s.key !== splitKey));
   const updateSplit = (lineKey: string, splitKey: string, patch: Partial<Split>) =>
     mapSplits(lineKey, (splits) => splits.map((s) => (s.key === splitKey ? { ...s, ...patch } : s)));
+
+  // Allocation templates — apply a saved split pattern to a line (distribute its
+  // amount by the template's percentages; the last split absorbs the rounding
+  // remainder), and save the current split as a reusable template.
+  const relevantTemplates = data.allocationTemplates.filter((t) => t.vendorId === null || t.vendorId === vendorId);
+  const applyTemplate = (lineKey: string, tmplId: string) => {
+    const tmpl = data.allocationTemplates.find((t) => t.id === tmplId);
+    const line = lines.find((l) => l.key === lineKey);
+    if (!tmpl || !line) return;
+    const totalCents = Math.round(num(line.amount) * 100);
+    let allocated = 0;
+    const next: Split[] = tmpl.lines.map((t, i) => {
+      const cents = i === tmpl.lines.length - 1 ? totalCents - allocated : Math.round((totalCents * t.percentBps) / 10000);
+      allocated += cents;
+      return { ...makeSplit(), glLabel: t.glLabel, amount: (cents / 100).toString() };
+    });
+    mapSplits(lineKey, () => next);
+  };
+  const saveAsTemplate = (line: Line) => {
+    const totalCents = Math.round(num(line.amount) * 100);
+    const valid = line.splits.filter((s) => num(s.amount) > 0);
+    if (totalCents <= 0 || valid.length === 0) return;
+    const name = window.prompt('Name this allocation template');
+    if (!name?.trim()) return;
+    const tmplLines = valid.map((s) => ({ glLabel: s.glLabel, percentBps: Math.round(((num(s.amount) * 100) / totalCents) * 10000) }));
+    startTemplate(async () => {
+      await createAllocationTemplate(name.trim(), tmplLines, vendorId || undefined);
+      router.refresh();
+    });
+  };
 
   const validLines = lines.filter((l) => l.description.trim() !== '' && num(l.amount) > 0);
   const canSave = vendorId !== '' && invoiceNumber.trim() !== '' && validLines.length > 0;
@@ -279,6 +311,30 @@ export function BillForm({
                             <td colSpan={5}>
                               <div className="nb-splitfoot-row">
                                 <button type="button" className="nb-addsplit" onClick={() => addSplit(l.key)}><Icon name="plus" size={12} />Add split</button>
+                                {relevantTemplates.length > 0 && (
+                                  <div className="nb-selwrap nb-tmpl-pick">
+                                    <select
+                                      className="nb-tmpl-select"
+                                      value=""
+                                      onChange={(e) => { const v = e.target.value; if (v) applyTemplate(l.key, v); }}
+                                    >
+                                      <option value="">Apply template…</option>
+                                      {relevantTemplates.map((t) => (
+                                        <option key={t.id} value={t.id}>{t.name}{t.vendorId ? '' : ' · org'}</option>
+                                      ))}
+                                    </select>
+                                    <Icon name="chevron-down" size={12} className="nb-selchev" />
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  className="nb-tmpl-save"
+                                  disabled={!balanced || splitSum <= 0 || savingTemplate}
+                                  onClick={() => saveAsTemplate(l)}
+                                  title="Save this split as a reusable allocation template"
+                                >
+                                  <Icon name="bookmark" size={12} />Save template
+                                </button>
                                 <span className={'nb-splithint' + (balanced ? ' ok' : '')}>splits {fmt(splitSum)} / {fmt(lineAmt)}</span>
                               </div>
                             </td>

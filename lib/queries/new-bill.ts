@@ -1,11 +1,12 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { bills, vendors, glAccounts } from '@/db/schema';
+import { bills, vendors, glAccounts, allocationTemplates } from '@/db/schema';
 import { DEMO_ORG } from '@/lib/demo';
 
 export type NewBillVendor = { id: string; name: string; mono: string; defaultGl: string | null; terms: string };
 export type NewBillGl = { id: string; code: string; name: string };
-export type NewBillFormData = { vendors: NewBillVendor[]; glAccounts: NewBillGl[] };
+export type AllocationTemplate = { id: string; name: string; vendorId: string | null; lines: { glLabel: string; percentBps: number }[] };
+export type NewBillFormData = { vendors: NewBillVendor[]; glAccounts: NewBillGl[]; allocationTemplates: AllocationTemplate[] };
 
 // Vendors + chart of accounts for the manual "New bill" form dropdowns.
 export async function getNewBillFormData(): Promise<NewBillFormData> {
@@ -21,7 +22,13 @@ export async function getNewBillFormData(): Promise<NewBillFormData> {
     .where(eq(glAccounts.orgId, DEMO_ORG))
     .orderBy(asc(glAccounts.name));
 
-  return { vendors: vendorRows, glAccounts: glRows };
+  const templateRows = await db
+    .select({ id: allocationTemplates.id, name: allocationTemplates.name, vendorId: allocationTemplates.vendorId, lines: allocationTemplates.lines })
+    .from(allocationTemplates)
+    .where(eq(allocationTemplates.orgId, DEMO_ORG))
+    .orderBy(asc(allocationTemplates.name));
+
+  return { vendors: vendorRows, glAccounts: glRows, allocationTemplates: templateRows };
 }
 
 export type BillFormInitialLine = {

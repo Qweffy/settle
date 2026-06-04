@@ -90,6 +90,14 @@ export const savedViewSchema = z.object({
   config: savedViewConfigSchema,
 });
 
+export const allocationTemplateSchema = z.object({
+  name: z.string().trim().min(1, 'Name your template').max(120),
+  vendorId: idSchema.nullable(),
+  lines: z
+    .array(z.object({ glLabel: z.string().trim().min(1), percentBps: z.number().int().min(0).max(10000) }))
+    .min(1, 'A template needs at least one split'),
+});
+
 export const vendorInputSchema = z.object({
   name: z.string().trim().min(1, 'Vendor name is required'),
   email: z.string(),

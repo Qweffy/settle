@@ -220,6 +220,21 @@ export const savedViews = pgTable('saved_views', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// A reusable GL split pattern — apply it to a line to allocate its amount across
+// GL accounts by percentage (basis points summing to 10000). Org-wide when
+// vendorId is null, otherwise scoped to that vendor.
+export type AllocationTemplateLine = { glLabel: string; percentBps: number };
+
+export const allocationTemplates = pgTable('allocation_templates', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id),
+  vendorId: text('vendor_id').references(() => vendors.id),
+  name: text('name').notNull(),
+  lines: jsonb('lines').$type<AllocationTemplateLine[]>().notNull(),
+  createdBy: text('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 /* --------------------------- relations --------------------------- */
 export const vendorsRelations = relations(vendors, ({ many }) => ({
   bills: many(bills),
