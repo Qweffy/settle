@@ -81,8 +81,10 @@ jobs:
 
       # Postgres + Neon HTTP proxy. The app's @neondatabase/serverless driver
       # speaks HTTP, not the Postgres wire protocol, so a plain Postgres isn't
-      # enough — the proxy bridges them. Every run gets a fresh, real database.
-      - name: Start Postgres + Neon HTTP proxy
+      # enough — the proxy bridges them. Postgres applies the Drizzle migration
+      # on first boot (mounted into /docker-entrypoint-initdb.d), so every run
+      # gets a fresh, real, fully-migrated database without drizzle-kit.
+      - name: Start Postgres (with schema) + Neon HTTP proxy
         run: docker compose -f docker-compose.test.yml up -d --wait
 
       - name: Wait for the Neon proxy
@@ -97,11 +99,6 @@ jobs:
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
-
-      # drizzle-kit talks the Postgres wire protocol directly (not via the proxy)
-      # to create the schema in the fresh, empty database.
-      - name: Push schema
-        run: npm run db:push
 
       - name: Seed demo data
         run: npm run db:seed

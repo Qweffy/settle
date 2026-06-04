@@ -112,11 +112,13 @@ npm run test:e2e        # e2e (Playwright) — needs a database (below)
 **The e2e database.** The app uses Neon's HTTP driver, which speaks HTTP rather than the Postgres wire protocol — so e2e runs against a self-contained **Neon HTTP proxy** (a Postgres container + [`local-neon-http-proxy`](https://github.com/TimoWilhelm/local-neon-http-proxy)) rather than a plain local Postgres. No external database or secrets needed:
 
 ```bash
-docker compose -f docker-compose.test.yml up -d --wait
+docker compose -f docker-compose.test.yml up -d --wait   # Postgres applies the schema on first boot
 export DATABASE_URL=postgres://postgres:postgres@db.localtest.me:5432/main
-npm run db:push && npm run db:seed
+npm run db:seed
 npm run test:e2e
 ```
+
+The schema is mounted into the Postgres container's `docker-entrypoint-initdb.d`, so it's created the moment the container boots — `drizzle-kit` (whose neon-http driver can't reach a plain Postgres) never enters the loop. Local dev against real Neon still uses `npm run db:push`.
 
 **CI.** Every push runs three parallel jobs — `verify` (typecheck · lint · build), `unit`, and `e2e`. The e2e job spins up the Neon proxy, seeds a fresh database, builds, and runs Playwright, uploading the HTML report as an artifact. Keeping e2e in its own job means an infra hiccup never reds the core gates. _(The e2e suite already earned its keep: it caught a real `/dashboard` 500 — an activity type the icon map didn't cover — before it could ship.)_
 

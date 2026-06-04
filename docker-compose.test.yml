@@ -11,6 +11,12 @@ services:
       POSTGRES_DB: main
     ports:
       - '5432:5432'
+    # The Drizzle migration runs on first boot (before Postgres accepts TCP), so
+    # the schema exists by the time the healthcheck — and `--wait` — pass. This
+    # avoids drizzle-kit in CI, whose neon-http driver can't reach a plain
+    # Postgres. Local dev still uses `npm run db:push` against real Neon.
+    volumes:
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 5s
