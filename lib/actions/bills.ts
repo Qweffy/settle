@@ -494,48 +494,55 @@ export async function bulkAdvance(ids: string[], action: BulkAction): Promise<{ 
   let skipped = 0;
 
   for (const id of parsed.ids) {
-    const b = await loadBill(id);
-    // Eligibility is driven by the state machine (can't drift from
-    // ALLOWED_TRANSITIONS); the approval gate is an extra predicate on 'approve'.
-    const eligible =
-      canTransition(b.status as BillLifecycle, target) &&
-      (parsed.action !== 'approve' ||
-        roleSatisfies(actorRole, requiredApproval(b.totalCents)?.requiredRole ?? 'approver'));
-    if (!eligible) {
-      skipped++;
-      continue;
-    }
-
-    switch (parsed.action) {
-      case 'submit':
-        await db.update(bills).set({ status: 'pending_approval', submittedAt: now, updatedAt: now }).where(eq(bills.id, id));
-        await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'submit' });
-        await logActivity(b.orgId, id, actor, 'submitted', 'submitted for approval', null);
-        break;
-      case 'approve':
-        await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: now, updatedAt: now }).where(eq(bills.id, id));
-        await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'approve' });
-        await logActivity(b.orgId, id, actor, 'approved', 'approved', b.totalCents);
-        break;
-      case 'schedule': {
-        const when = new Date(now.getTime() + 5 * 86_400_000);
-        const [vendor] = await db.select().from(vendors).where(eq(vendors.id, b.vendorId));
-        const method = (vendor?.defaultMethod ?? 'ach') as PaymentMethod;
-        await db.update(bills).set({ status: 'scheduled', scheduledPayDate: when, updatedAt: now }).where(eq(bills.id, id));
-        await db.insert(payments).values({
-          id: rid('pay'), billId: id, amountCents: b.totalCents, method, payDate: when,
-          status: 'scheduled', referenceNumber: `${method.toUpperCase()}-${b.invoiceNumber}`, createdBy: actor,
-        });
-        await logActivity(b.orgId, id, actor, 'scheduled', 'scheduled', b.totalCents);
-        break;
+    // Each bill advances independently — a single bad row (missing bill, transient
+    // DB error) is counted as skipped and logged, never failing the whole batch.
+    try {
+      const b = await loadBill(id);
+      // Eligibility is driven by the state machine (can't drift from
+      // ALLOWED_TRANSITIONS); the approval gate is an extra predicate on 'approve'.
+      const eligible =
+        canTransition(b.status as BillLifecycle, target) &&
+        (parsed.action !== 'approve' ||
+          roleSatisfies(actorRole, requiredApproval(b.totalCents)?.requiredRole ?? 'approver'));
+      if (!eligible) {
+        skipped++;
+        continue;
       }
-      case 'pay':
-        await db.update(bills).set({ status: 'paid', paidAt: now, updatedAt: now }).where(eq(bills.id, id));
-        await db.update(payments).set({ status: 'paid' }).where(eq(payments.billId, id));
-        await logActivity(b.orgId, id, actor, 'paid', 'marked paid', b.totalCents);
-        break;
+
+      switch (parsed.action) {
+        case 'submit':
+          await db.update(bills).set({ status: 'pending_approval', submittedAt: now, updatedAt: now }).where(eq(bills.id, id));
+          await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'submit' });
+          await logActivity(b.orgId, id, actor, 'submitted', 'submitted for approval', null);
+          break;
+        case 'approve':
+          await db.update(bills).set({ status: 'approved', approvedBy: actor, approvedAt: now, updatedAt: now }).where(eq(bills.id, id));
+          await db.insert(approvalEvents).values({ id: rid('appr'), billId: id, actorId: actor, action: 'approve' });
+          await logActivity(b.orgId, id, actor, 'approved', 'approved', b.totalCents);
+          break;
+        case 'schedule': {
+          const when = new Date(now.getTime() + 5 * 86_400_000);
+          const [vendor] = await db.select().from(vendors).where(eq(vendors.id, b.vendorId));
+          const method = (vendor?.defaultMethod ?? 'ach') as PaymentMethod;
+          await db.update(bills).set({ status: 'scheduled', scheduledPayDate: when, updatedAt: now }).where(eq(bills.id, id));
+          await db.insert(payments).values({
+            id: rid('pay'), billId: id, amountCents: b.totalCents, method, payDate: when,
+            status: 'scheduled', referenceNumber: `${method.toUpperCase()}-${b.invoiceNumber}`, createdBy: actor,
+          });
+          await logActivity(b.orgId, id, actor, 'scheduled', 'scheduled', b.totalCents);
+          break;
+        }
+        case 'pay':
+          await db.update(bills).set({ status: 'paid', paidAt: now, updatedAt: now }).where(eq(bills.id, id));
+          await db.update(payments).set({ status: 'paid' }).where(eq(payments.billId, id));
+          await logActivity(b.orgId, id, actor, 'paid', 'marked paid', b.totalCents);
+          break;
+      }
+      done++;
+    } catch (e) {
+      console.error(`[bulkAdvance] ${parsed.action} failed for ${id}:`, e);
+      skipped++;
     }
-    done++;
   }
 
   revalidateAll();
@@ -566,45 +573,52 @@ export async function importBills(rows: ImportRow[]): Promise<{ created: number;
   let skipped = 0;
 
   for (const row of rows) {
-    const vendor = byName.get(row.vendor.trim().toLowerCase());
-    const amountCents = Math.round(row.amount * 100);
-    if (!vendor || row.invoiceNumber.trim() === '' || !Number.isFinite(amountCents) || amountCents <= 0) {
+    // One unparseable/unwritable row never sinks the whole import — it's skipped
+    // and logged so the rest of the file still lands in Drafts.
+    try {
+      const vendor = byName.get(row.vendor.trim().toLowerCase());
+      const amountCents = Math.round(row.amount * 100);
+      if (!vendor || row.invoiceNumber.trim() === '' || !Number.isFinite(amountCents) || amountCents <= 0) {
+        skipped++;
+        continue;
+      }
+
+      const billId = rid('b');
+      const due = row.dueDate ? new Date(row.dueDate) : null;
+      const gl = row.gl.trim() || vendor.defaultGl || null;
+
+      await db.insert(bills).values({
+        id: billId,
+        orgId: vendor.orgId,
+        vendorId: vendor.id,
+        invoiceNumber: row.invoiceNumber.trim(),
+        status: 'draft',
+        reviewStatus: 'clean',
+        ocrStatus: 'none',
+        source: 'manual',
+        dueDate: due && !Number.isNaN(due.getTime()) ? due : null,
+        currency: 'USD',
+        subtotalCents: amountCents,
+        taxCents: 0,
+        totalCents: amountCents,
+        memo: 'Imported from CSV',
+        glAccount: gl,
+        createdBy: actor,
+      });
+      await db.insert(billLineItems).values({
+        id: rid('li'),
+        billId,
+        description: row.description?.trim() || row.gl.trim() || 'Imported line item',
+        amountCents,
+        glLabel: gl,
+        sortOrder: 0,
+      });
+      await logActivity(vendor.orgId, billId, actor, 'created', 'imported this bill from CSV', amountCents);
+      created++;
+    } catch (e) {
+      console.error(`[importBills] failed to import "${row.invoiceNumber}":`, e);
       skipped++;
-      continue;
     }
-
-    const billId = rid('b');
-    const due = row.dueDate ? new Date(row.dueDate) : null;
-    const gl = row.gl.trim() || vendor.defaultGl || null;
-
-    await db.insert(bills).values({
-      id: billId,
-      orgId: vendor.orgId,
-      vendorId: vendor.id,
-      invoiceNumber: row.invoiceNumber.trim(),
-      status: 'draft',
-      reviewStatus: 'clean',
-      ocrStatus: 'none',
-      source: 'manual',
-      dueDate: due && !Number.isNaN(due.getTime()) ? due : null,
-      currency: 'USD',
-      subtotalCents: amountCents,
-      taxCents: 0,
-      totalCents: amountCents,
-      memo: 'Imported from CSV',
-      glAccount: gl,
-      createdBy: actor,
-    });
-    await db.insert(billLineItems).values({
-      id: rid('li'),
-      billId,
-      description: row.description?.trim() || row.gl.trim() || 'Imported line item',
-      amountCents,
-      glLabel: gl,
-      sortOrder: 0,
-    });
-    await logActivity(vendor.orgId, billId, actor, 'created', 'imported this bill from CSV', amountCents);
-    created++;
   }
 
   revalidateAll();

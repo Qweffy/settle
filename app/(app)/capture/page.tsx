@@ -450,28 +450,47 @@ export default function CapturePage() {
   const [isPending, startTransition] = useTransition();
   const [isSaving, startSave] = useTransition();
   const [isSimulating, startSimulate] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const handleProcess = () => {
+    setError(null);
     startTransition(async () => {
-      const res = await runCapture();
-      setResult(res);
+      try {
+        const res = await runCapture();
+        setResult(res);
+      } catch (e) {
+        console.error('[capture] OCR failed:', e);
+        setError("Couldn't read this invoice — please try again.");
+      }
     });
   };
 
   const handleSave = () => {
     if (!result) return;
+    setError(null);
     startSave(async () => {
-      const newId = await createBillFromCapture(result.extraction, result.flags, 'v-landfill');
-      router.push(`/bills/${newId}`);
+      try {
+        const newId = await createBillFromCapture(result.extraction, result.flags, 'v-landfill');
+        router.push(`/bills/${newId}`);
+      } catch (e) {
+        console.error('[capture] save failed:', e);
+        setError("Couldn't create the draft bill — please try again.");
+      }
     });
   };
 
   // Demo the forwarding inbox: pretend an invoice just arrived by email and let
   // Settle OCR + draft it, landing on the new bill.
   const simulateInbound = () => {
+    setError(null);
     startSimulate(async () => {
-      const id = await simulateInboundEmail('v-landfill');
-      router.push(`/bills/${id}`);
+      try {
+        const id = await simulateInboundEmail('v-landfill');
+        router.push(`/bills/${id}`);
+      } catch (e) {
+        console.error('[capture] inbound simulation failed:', e);
+        setError("Couldn't process the inbound invoice — please try again.");
+      }
     });
   };
 
@@ -501,6 +520,21 @@ export default function CapturePage() {
             <span className={'step' + (result ? ' done' : '')}><span className="sn">3</span>Review</span>
           </div>
         </div>
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', marginBottom: 14,
+              borderRadius: 10, background: 'var(--failed-bg)',
+              border: '1px solid color-mix(in srgb, var(--failed-solid) 30%, transparent)',
+              color: 'var(--failed-ink)', font: '600 12.5px var(--font-ui)',
+            }}
+          >
+            <Icon name="alert-triangle" size={16} />
+            {error}
+          </div>
+        )}
 
         <div className="top-row">
           <StageUpload onProcess={handleProcess} pending={isPending} onSimulate={simulateInbound} simulating={isSimulating} />

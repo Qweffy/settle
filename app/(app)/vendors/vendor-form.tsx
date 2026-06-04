@@ -35,6 +35,7 @@ export function VendorForm({ initial, editId }: { initial?: VendorFormInitial; e
   const [bankLast4, setBankLast4] = useState(initial?.bankLast4 ?? '');
   const [defaultGl, setDefaultGl] = useState(initial?.defaultGl ?? '');
   const [saving, startSave] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const isEdit = editId != null;
   const canSave = name.trim() !== '';
@@ -42,10 +43,18 @@ export function VendorForm({ initial, editId }: { initial?: VendorFormInitial; e
 
   const handleSave = () => {
     if (!canSave) return;
+    setError(null);
     startSave(async () => {
-      const payload = { name, email, phone, address, taxId, terms, defaultMethod, bankLast4, defaultGl };
-      const id = isEdit ? await updateVendor(editId, payload) : await createVendor(payload);
-      router.push(`/vendors/${id}`);
+      try {
+        const payload = { name, email, phone, address, taxId, terms, defaultMethod, bankLast4, defaultGl };
+        const id = isEdit ? await updateVendor(editId, payload) : await createVendor(payload);
+        router.push(`/vendors/${id}`);
+      } catch (e) {
+        // Keep the failure at this form — surface it inline instead of bubbling
+        // to the route error boundary, so the entered details aren't lost.
+        console.error('[vendor-form] save failed:', e);
+        setError("Couldn't save this vendor — please try again.");
+      }
     });
   };
 
@@ -138,7 +147,9 @@ export function VendorForm({ initial, editId }: { initial?: VendorFormInitial; e
           {/* Actions */}
           <div className="nb-actions">
             <span className="nb-hint">
-              {canSave ? (
+              {error ? (
+                <><Icon name="alert-triangle" size={13} style={{ color: 'var(--failed-ink)' }} /><span style={{ color: 'var(--failed-ink)' }}>{error}</span></>
+              ) : canSave ? (
                 <><Icon name="check" size={13} style={{ color: 'var(--paid-ink)' }} />{isEdit ? 'Ready to save changes' : 'Ready to add this vendor'}</>
               ) : (
                 <><Icon name="info" size={13} />Enter a vendor name to continue</>
