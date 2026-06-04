@@ -56,7 +56,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **2‑way accounting sync (QuickBooks/NetSuite)** — realistic in Ramp but not meaningfully mockable in the timebox; the activity feed shows a representative "synced from QuickBooks" event.
 - **Global/FX mass payments + a tax engine (1099/W‑8/VAT)** — deliberately dropped after the competitor benchmark: overkill for a US‑domestic hauler.
 - **Historical series for scorecard deltas/sparklines** — the scorecard *values* are real (live DB aggregates); the small delta % and sparkline are illustrative, since there's no time‑series table yet.
-- **Dynamic vendor route** — every bill now opens its own cockpit at `/bills/[id]` (and a captured invoice routes straight there after saving); the vendor page is still wired to one representative vendor, so `/vendors/[id]` is the remaining thin follow‑up.
+- **Bulk actions + an approval-rules engine** — the bills table supports multi-select, but bulk approve/schedule/pay and threshold-based approval routing (e.g. bills over $X require a controller) are roadmap, not built. (Bills *and* vendors both ship full create/edit forms + dynamic `/bills/[id]` and `/vendors/[id]` detail routes — captured/created records route straight to their detail.)
 
 ---
 
