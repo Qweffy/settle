@@ -1,5 +1,7 @@
 // Settle — Capture flow (upload → AI review) data
-export const FORWARD_EMAIL = 'bills@summit.settle.app';
+import { apForwardingAddress } from '@/lib/ap-inbox';
+
+export const FORWARD_EMAIL = apForwardingAddress('Summit Waste Services');
 
 // ---- state 1: recent uploads ----
 export type RecentState = 'draft' | 'reading' | 'processed';

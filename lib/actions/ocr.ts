@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { vendors, bills } from '@/db/schema';
 import { parseInvoice, type OcrResult, type InvoiceInput } from '@/lib/ocr';
+import { createBillFromCapture } from './bills';
 
 // A representative waste-hauler invoice used for the demo's "process a sample" flow.
 const SAMPLE_INVOICE = `REGIONAL LANDFILL AUTHORITY
@@ -48,4 +49,12 @@ export async function runCapture(vendorId = 'v-landfill', input?: InvoiceInput):
     vendor?.name ?? 'Regional Landfill Authority',
     buildVendorHistory(history),
   );
+}
+
+// Demo: simulate an invoice landing in the AP forwarding inbox — run the same
+// OCR + AI review as an upload, then draft a real bill from it. Returns the new
+// bill id so the client can route to its cockpit.
+export async function simulateInboundEmail(vendorId = 'v-landfill'): Promise<string> {
+  const res = await runCapture(vendorId);
+  return createBillFromCapture(res.extraction, res.flags, vendorId);
 }

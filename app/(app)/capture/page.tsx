@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
-import { runCapture } from '@/lib/actions/ocr';
+import { runCapture, simulateInboundEmail } from '@/lib/actions/ocr';
 import { createBillFromCapture } from '@/lib/actions/bills';
 import type { OcrResult, OcrFlag, OcrLine } from '@/lib/ocr';
 import {
@@ -140,7 +140,7 @@ function mapTotals(result: OcrResult): Totals {
 }
 
 /* ============================== STAGE 1: UPLOAD */
-function StageUpload({ onProcess, pending }: { onProcess: () => void; pending: boolean }) {
+function StageUpload({ onProcess, pending, onSimulate, simulating }: { onProcess: () => void; pending: boolean; onSimulate: () => void; simulating: boolean }) {
   return (
     <div className="stage">
       <div className="stage-head">
@@ -163,7 +163,10 @@ function StageUpload({ onProcess, pending }: { onProcess: () => void; pending: b
             <div className="fw-l">Forwarding address</div>
             <div className="fw-mail">{FORWARD_EMAIL}</div>
           </div>
-          <button className="fw-copy"><Icon name="copy" size={13} />Copy</button>
+          <button className="fw-copy" onClick={onSimulate} disabled={simulating}>
+            <Icon name={simulating ? 'loader' : 'inbox'} size={13} className={simulating ? 'spin' : ''} />
+            {simulating ? 'Receiving…' : 'Simulate inbound'}
+          </button>
         </div>
 
         <div>
@@ -446,6 +449,7 @@ export default function CapturePage() {
   const [result, setResult] = useState<OcrResult | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isSaving, startSave] = useTransition();
+  const [isSimulating, startSimulate] = useTransition();
 
   const handleProcess = () => {
     startTransition(async () => {
@@ -459,6 +463,15 @@ export default function CapturePage() {
     startSave(async () => {
       const newId = await createBillFromCapture(result.extraction, result.flags, 'v-landfill');
       router.push(`/bills/${newId}`);
+    });
+  };
+
+  // Demo the forwarding inbox: pretend an invoice just arrived by email and let
+  // Settle OCR + draft it, landing on the new bill.
+  const simulateInbound = () => {
+    startSimulate(async () => {
+      const id = await simulateInboundEmail('v-landfill');
+      router.push(`/bills/${id}`);
     });
   };
 
@@ -490,7 +503,7 @@ export default function CapturePage() {
         </div>
 
         <div className="top-row">
-          <StageUpload onProcess={handleProcess} pending={isPending} />
+          <StageUpload onProcess={handleProcess} pending={isPending} onSimulate={simulateInbound} simulating={isSimulating} />
           <StageProcessing pending={isPending} done={!!result} />
         </div>
         {/* key remounts the draft so its local state (GL edits, resolved flags)
