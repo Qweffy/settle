@@ -67,6 +67,7 @@ function Sidebar() {
 }
 
 function Topbar({ onSearch }: { onSearch: () => void }) {
+  const router = useRouter();
   const [menu, setMenu] = useState<'entity' | 'role' | null>(null);
   const [entityIdx, setEntityIdx] = useState(0);
   const [roleIdx, setRoleIdx] = useState(0);
@@ -149,7 +150,7 @@ function Topbar({ onSearch }: { onSearch: () => void }) {
       </div>
 
       <div className="tb-divider" />
-      <button className="btn btn-primary"><Icon name="plus" size={15} />New bill</button>
+      <button className="btn btn-primary" onClick={() => router.push('/bills/new')}><Icon name="plus" size={15} />New bill</button>
 
       {menu && (
         <div
@@ -207,6 +208,11 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
   const run = (item?: CmdItem) => {
     if (item?.type === 'nav' && item.href) router.push(item.href);
+    else if (item?.type === 'action') {
+      if (item.id === 'newbill') router.push('/bills/new');
+      else if (item.id === 'record') router.push('/payments');
+      else if (item.id === 'vendor') router.push('/vendors');
+    }
     onClose();
   };
   const onKey = (e: React.KeyboardEvent) => {
@@ -278,6 +284,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [cmdkOpen, setCmdkOpen] = useState(false);
 
   useEffect(() => {
@@ -285,13 +292,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCmdkOpen((o) => !o);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        router.push('/bills/new');
       } else if (e.key === 'Escape') {
         setCmdkOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [router]);
 
   return (
     <div className="app">

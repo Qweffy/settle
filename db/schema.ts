@@ -92,6 +92,7 @@ export const bills = pgTable('bills', {
   status: billStatus('status').notNull().default('draft'),
   reviewStatus: reviewStatus('review_status').notNull().default('clean'),
   ocrStatus: ocrStatus('ocr_status').notNull().default('none'),
+  source: text('source').notNull().default('email'), // email | manual | ocr — drives the cockpit timeline narrative
   issueDate: timestamp('issue_date'),
   dueDate: timestamp('due_date'),
   currency: text('currency').notNull().default('USD'),

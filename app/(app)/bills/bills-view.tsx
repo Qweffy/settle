@@ -152,7 +152,7 @@ export function BillsView({ data }: { data: BillsData }) {
         </div>
         <div className="ph-actions">
           <button className="btn btn-ghost"><Icon name="upload" size={15} />Import</button>
-          <button className="btn btn-primary"><Icon name="plus" size={15} />New bill</button>
+          <button className="btn btn-primary" onClick={() => router.push('/bills/new')}><Icon name="plus" size={15} />New bill</button>
         </div>
       </div>
 

@@ -193,25 +193,32 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
         icon: 'file-plus-2',
         who: creator?.name ?? 'Settle',
         mono: creator?.mono ?? 'S',
-        text: bill.ocrStatus === 'done' ? 'created this bill from a captured invoice' : 'created this bill from an emailed PDF',
+        text:
+          bill.source === 'manual'
+            ? 'created this bill manually'
+            : bill.ocrStatus === 'done'
+              ? 'created this bill from a captured invoice'
+              : 'created this bill from an emailed PDF',
         time: timelineStamp(bill.createdAt),
       } satisfies TimelineEvent,
     });
-    // Settle auto-coded (1 min after creation)
-    const coded = new Date(bill.createdAt.getTime() + 60_000);
-    entries.push({
-      at: coded.getTime(),
-      node: {
-        id: 'coded',
-        kind: 'event',
-        icon: 'sparkles',
-        who: 'Settle',
-        mono: 'S',
-        accent: 'approval',
-        text: `auto-coded all ${ordered.length} lines to ${bill.glAccount ?? 'GL'} and matched the vendor`,
-        time: timelineStamp(coded),
-      } satisfies TimelineEvent,
-    });
+    // Settle auto-coded (1 min after creation) — only for Settle-ingested bills, not manual entry
+    if (bill.source !== 'manual') {
+      const coded = new Date(bill.createdAt.getTime() + 60_000);
+      entries.push({
+        at: coded.getTime(),
+        node: {
+          id: 'coded',
+          kind: 'event',
+          icon: 'sparkles',
+          who: 'Settle',
+          mono: 'S',
+          accent: 'approval',
+          text: `auto-coded all ${ordered.length} lines to ${bill.glAccount ?? 'GL'} and matched the vendor`,
+          time: timelineStamp(coded),
+        } satisfies TimelineEvent,
+      });
+    }
     // Settle flagged N issues (2 min after creation)
     if (bill.flags.length > 0) {
       const flagged = new Date(bill.createdAt.getTime() + 120_000);

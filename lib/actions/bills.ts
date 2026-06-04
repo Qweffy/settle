@@ -151,6 +151,7 @@ export async function createBillFromCapture(
     status: 'pending_approval',
     reviewStatus: flags.length > 0 ? 'flagged' : 'clean',
     ocrStatus: 'done',
+    source: 'ocr',
     issueDate: parseDate(extraction.issueDate),
     dueDate: parseDate(extraction.dueDate),
     currency: extraction.currency || 'USD',
@@ -195,6 +196,82 @@ export async function createBillFromCapture(
 
   await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'submit' });
   await logActivity(vendor.orgId, billId, actor, 'created', 'created this bill from a captured invoice', toCents(extraction.total));
+  await logActivity(vendor.orgId, billId, actor, 'submitted', 'submitted for approval', null);
+  revalidateAll();
+  return billId;
+}
+
+type NewBillLine = {
+  description: string;
+  quantity: number | null;
+  unitPriceCents: number | null;
+  amountCents: number;
+  glLabel: string;
+};
+
+// Persist a manually-entered bill (New bill form) and submit it for approval.
+export async function createBill(input: {
+  vendorId: string;
+  invoiceNumber: string;
+  issueDate: string | null;
+  dueDate: string | null;
+  memo: string | null;
+  taxCents: number;
+  lineItems: NewBillLine[];
+}): Promise<string> {
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, input.vendorId));
+  if (!vendor) throw new Error(`Vendor not found: ${input.vendorId}`);
+  const actor = await getCurrentUserId();
+  const billId = rid('b');
+  const now = new Date();
+
+  const parseDate = (s: string | null): Date | null => {
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const subtotalCents = input.lineItems.reduce((sum, l) => sum + l.amountCents, 0);
+  const totalCents = subtotalCents + input.taxCents;
+
+  await db.insert(bills).values({
+    id: billId,
+    orgId: vendor.orgId,
+    vendorId: vendor.id,
+    invoiceNumber: input.invoiceNumber,
+    status: 'pending_approval',
+    reviewStatus: 'clean',
+    ocrStatus: 'none',
+    source: 'manual',
+    issueDate: parseDate(input.issueDate),
+    dueDate: parseDate(input.dueDate),
+    currency: 'USD',
+    subtotalCents,
+    taxCents: input.taxCents,
+    totalCents,
+    memo: input.memo,
+    glAccount: input.lineItems[0]?.glLabel ?? vendor.defaultGl ?? null,
+    createdBy: actor,
+    submittedAt: now,
+  });
+
+  if (input.lineItems.length > 0) {
+    await db.insert(billLineItems).values(
+      input.lineItems.map((l, i) => ({
+        id: rid('li'),
+        billId,
+        description: l.description,
+        quantity: l.quantity,
+        unitPriceCents: l.unitPriceCents,
+        amountCents: l.amountCents,
+        glLabel: l.glLabel,
+        sortOrder: i,
+      })),
+    );
+  }
+
+  await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'submit' });
+  await logActivity(vendor.orgId, billId, actor, 'created', 'created this bill manually', totalCents);
   await logActivity(vendor.orgId, billId, actor, 'submitted', 'submitted for approval', null);
   revalidateAll();
   return billId;
