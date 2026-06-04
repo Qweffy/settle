@@ -10,7 +10,7 @@ Settle is a modern **Accounts Payable / Bill Pay** product — where a finance t
 
 A finance team lives in four workflows, and Settle is organized around them:
 
-1. **Intake → Draft.** Bills arrive (upload a PDF, forward to a dedicated AP inbox, or create manually). On the **Capture** screen, an AI pass reads the invoice, pre‑fills a coded draft, and **flags anomalies** before anyone approves it.
+1. **Intake → Draft.** Bills arrive (upload a PDF, forward to a dedicated AP inbox, or create manually). On the **Capture** screen, an AI pass reads the invoice, pre‑fills a coded draft, and **flags anomalies**; **saving the draft persists a real bill** (line items + flags) straight into the approval queue and opens its cockpit.
 2. **Code → Approve.** The **Bill cockpit** is a 3‑panel workspace — invoice viewer + line‑item GL coding + a unified, auditable **timeline with comments and @‑mentions**. The **AI Bill Review** surfaces issues (surcharge spikes, new fees, missing POs, possible duplicates, vendor bank changes). Approvers sign off from the **Approvals queue**, grouped by urgency.
 3. **Schedule → Pay.** Approved bills get a payment scheduled and then marked paid (simulated rail), with consolidation hints for vendors you pay often.
 4. **Monitor.** The **Dashboard** (scorecards, needs‑review, expected‑but‑missing bills, cash‑out by week, activity feed) and the **AP Aging** report keep the whole thing under control.
@@ -56,7 +56,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **2‑way accounting sync (QuickBooks/NetSuite)** — realistic in Ramp but not meaningfully mockable in the timebox; the activity feed shows a representative "synced from QuickBooks" event.
 - **Global/FX mass payments + a tax engine (1099/W‑8/VAT)** — deliberately dropped after the competitor benchmark: overkill for a US‑domestic hauler.
 - **Historical series for scorecard deltas/sparklines** — the scorecard *values* are real (live DB aggregates); the small delta % and sparkline are illustrative, since there's no time‑series table yet.
-- **Per‑bill dynamic routes for the cockpit/vendor** — the cockpit is wired to the flagship bill and the vendor page to a representative vendor; `[id]` routes are a thin follow‑up.
+- **Dynamic vendor route** — every bill now opens its own cockpit at `/bills/[id]` (and a captured invoice routes straight there after saving); the vendor page is still wired to one representative vendor, so `/vendors/[id]` is the remaining thin follow‑up.
 
 ---
 
