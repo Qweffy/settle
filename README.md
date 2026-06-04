@@ -10,7 +10,7 @@ Settle is a modern **Accounts Payable / Bill Pay** product — where a finance t
 
 A finance team lives in four workflows, and Settle is organized around them:
 
-1. **Intake → Draft.** Bills arrive (upload a PDF, forward to a dedicated AP inbox, or create manually). On the **Capture** screen, an AI pass reads the invoice, pre‑fills a coded draft, and **flags anomalies**; **saving the draft persists a real bill** (line items + flags) straight into the approval queue and opens its cockpit.
+1. **Intake → Draft.** Bills arrive (upload a PDF, forward to a dedicated AP inbox, or create manually). On the **Capture** screen, an AI pass reads the invoice, pre‑fills a coded draft, and **flags anomalies**; **saving the draft persists a real bill** (line items + flags) straight into the approval queue and opens its cockpit. Manual entry is a full **New bill** form (vendor + line-item GL coding + dates + tax) reachable from the topbar, the bills table, the command palette, or Cmd-N.
 2. **Code → Approve.** The **Bill cockpit** is a 3‑panel workspace — invoice viewer + line‑item GL coding + a unified, auditable **timeline with comments and @‑mentions**. The **AI Bill Review** surfaces issues (surcharge spikes, new fees, missing POs, possible duplicates, vendor bank changes). Approvers sign off from the **Approvals queue**, grouped by urgency.
 3. **Schedule → Pay.** Approved bills get a payment scheduled and then marked paid (simulated rail), with consolidation hints for vendors you pay often.
 4. **Monitor.** The **Dashboard** (scorecards, needs‑review, expected‑but‑missing bills, cash‑out by week, activity feed) and the **AP Aging** report keep the whole thing under control.
