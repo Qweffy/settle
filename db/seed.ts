@@ -6,9 +6,12 @@ config({ path: '.env.local' });
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 import * as s from './schema';
+import { configureNeonForLocalProxy } from './neon-local';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set. Add it to .env.local before seeding.');
+// Same proxy routing as the app client, so seeding hits the e2e proxy, not Neon.
+configureNeonForLocalProxy(url);
 const db = drizzle(neon(url), { schema: s });
 
 /* --------------------------- helpers --------------------------- */

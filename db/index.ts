@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/neon-http';
-import { neon, neonConfig } from '@neondatabase/serverless';
+import { neon } from '@neondatabase/serverless';
 import * as schema from './schema';
+import { configureNeonForLocalProxy } from './neon-local';
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -10,14 +11,9 @@ if (!connectionString) {
   );
 }
 
-// Tests run against a local Postgres + neon-http proxy (docker). When the URL
-// points at the proxy host, route the driver's HTTP fetch to it. No effect in
-// production — real Neon hosts don't match.
-if (connectionString.includes('localtest.me') || process.env.NEON_LOCAL) {
-  neonConfig.fetchEndpoint = (host) => `http://${host}:4444/sql`;
-  neonConfig.useSecureWebSocket = false;
-  neonConfig.poolQueryViaFetch = true;
-}
+// Tests run against a local Postgres + neon-http proxy (docker); a no-op in
+// production since real Neon hosts don't match.
+configureNeonForLocalProxy(connectionString);
 
 export const db = drizzle(neon(connectionString), { schema });
 export { schema };
