@@ -160,6 +160,19 @@ const ACTIVITY = [
   { actor: 'user-marcus', type: 'approved', text: 'approved', target: 'Samsara', amount: c(7900), daysAgo: -1, meta: null, quote: null },
 ];
 
+/* ----------------------- recurring schedules ------------------- */
+type Recurring = {
+  id: string; vendor: string; frequency: 'monthly' | 'weekly' | 'quarterly';
+  description: string; amount: number; gl: string; nextRun: number;
+};
+const RECURRING: Recurring[] = [
+  { id: 'rt-penske', vendor: 'v-penske', frequency: 'monthly', description: 'Truck lease — full-service fleet', amount: 31500, gl: 'Equipment', nextRun: 2 },
+  { id: 'rt-travelers', vendor: 'v-travelers', frequency: 'monthly', description: 'Commercial auto — monthly premium', amount: 44200, gl: 'Insurance', nextRun: -1 },
+  { id: 'rt-samsara', vendor: 'v-samsara', frequency: 'monthly', description: 'Telematics — fleet subscription', amount: 7900, gl: 'Software', nextRun: 9 },
+  { id: 'rt-heil', vendor: 'v-heil', frequency: 'quarterly', description: 'Preventive maintenance — quarterly service', amount: 18950, gl: 'Fleet Maintenance', nextRun: 20 },
+  { id: 'rt-wastequip', vendor: 'v-wastequip', frequency: 'monthly', description: 'Container fleet — monthly lease', amount: 24760, gl: 'Equipment', nextRun: 5 },
+];
+
 /* ----------------------------- run ----------------------------- */
 let seq = 0;
 const nid = (p: string) => `${p}-${(++seq).toString().padStart(4, '0')}`;
@@ -167,6 +180,7 @@ const nid = (p: string) => `${p}-${(++seq).toString().padStart(4, '0')}`;
 async function main() {
   console.info('Clearing existing data…');
   await db.delete(s.activityLog);
+  await db.delete(s.recurringBillTemplates);
   await db.delete(s.billComments);
   await db.delete(s.payments);
   await db.delete(s.approvalEvents);
@@ -255,6 +269,15 @@ async function main() {
       id: nid('act'), orgId: ORG, billId: null,
       actorId: a.actor, type: a.type, text: a.text, target: a.target,
       amountCents: a.amount, meta: a.meta, quote: a.quote, createdAt: day(a.daysAgo),
+    })),
+  );
+
+  console.info(`Seeding ${RECURRING.length} recurring schedules…`);
+  await db.insert(s.recurringBillTemplates).values(
+    RECURRING.map((r) => ({
+      id: r.id, orgId: ORG, vendorId: r.vendor, frequency: r.frequency,
+      description: r.description, amountCents: c(r.amount), glLabel: r.gl,
+      nextRunDate: day(r.nextRun), lastGeneratedAt: null, active: 'active',
     })),
   );
 

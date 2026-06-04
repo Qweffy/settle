@@ -61,6 +61,29 @@
   .set-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 32px 0; font: 500 13px var(--font-ui); color: var(--fg-3); text-align: center; }
   .set-empty .icon { width: 18px; height: 18px; color: var(--fg-3); }
 
+  /* recurring schedules table */
+  table.set-rec { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+  table.set-rec th { text-align: left; font: 600 9px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); padding: 8px 10px 8px 0; white-space: nowrap; }
+  table.set-rec th.c-amt, table.set-rec td.c-amt { width: 110px; text-align: right; }
+  table.set-rec th.c-freq, table.set-rec td.c-freq { width: 104px; }
+  table.set-rec th.c-next, table.set-rec td.c-next { width: 156px; }
+  table.set-rec th.c-gen, table.set-rec td.c-gen { width: 138px; text-align: right; }
+  table.set-rec tbody td { border-top: 1px solid var(--border-1); padding: 12px 10px 12px 0; vertical-align: middle; }
+  table.set-rec tbody tr:first-child td { border-top: 0; }
+
+  .set-rec-vendor { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .set-rec-mono { width: 30px; height: 30px; border-radius: 8px; background: var(--surface-sunken); border: 1px solid var(--border-1); color: var(--fg-2); display: grid; place-items: center; font: 600 11px var(--font-ui); flex-shrink: 0; }
+  .set-rec-vmeta { min-width: 0; }
+  .set-rec-vname { font: 600 13.5px var(--font-ui); color: var(--fg-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .set-rec-desc { font: 500 12px var(--font-ui); color: var(--fg-3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .set-rec-freq { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: var(--surface-sunken); border: 1px solid var(--border-1); font: 600 11.5px var(--font-ui); color: var(--fg-2); }
+  .set-rec-amt { font: 700 13.5px var(--font-ui); color: var(--fg-1); font-variant-numeric: tabular-nums; }
+  .set-rec-next { display: flex; align-items: center; gap: 8px; }
+  .set-rec-date { font: 600 12.5px var(--font-ui); color: var(--fg-2); font-variant-numeric: tabular-nums; }
+  .set-rec-gen { padding: 6px 11px; white-space: nowrap; }
+  .set-rec-gen .icon.spin { animation: settings-spin 1s linear infinite; }
+  .set-rec-gen:disabled { opacity: 0.55; cursor: not-allowed; }
+
   /* approval rules */
   .set-rules { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; }
   .set-rule { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px; background: var(--surface-sunken); border: 1px solid var(--border-1); }

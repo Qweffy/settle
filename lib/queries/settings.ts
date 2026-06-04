@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { organizations, glAccounts } from '@/db/schema';
 import { DEMO_ORG } from '@/lib/demo';
+import { getRecurringTemplates, type RecurringRow } from '@/lib/queries/recurring';
 
 export type SettingsGlAccount = {
   id: string;
@@ -13,6 +14,7 @@ export type SettingsGlAccount = {
 export type SettingsData = {
   org: { name: string; sub: string | null; mono: string | null };
   glAccounts: SettingsGlAccount[];
+  recurring: RecurringRow[];
 };
 
 // Org profile + chart of accounts for the /settings screen, scoped to the demo org.
@@ -27,6 +29,8 @@ export async function getSettingsData(): Promise<SettingsData> {
     .where(eq(glAccounts.orgId, DEMO_ORG))
     .orderBy(asc(glAccounts.code));
 
+  const recurring = await getRecurringTemplates();
+
   return {
     org: {
       name: org?.name ?? 'Organization',
@@ -34,5 +38,6 @@ export async function getSettingsData(): Promise<SettingsData> {
       mono: org?.mono ?? null,
     },
     glAccounts: glRows,
+    recurring,
   };
 }

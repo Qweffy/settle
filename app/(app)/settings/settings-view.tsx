@@ -4,12 +4,20 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { createGlAccount, updateGlAccount } from '@/lib/actions/settings';
+import { generateBillFromTemplate } from '@/lib/actions/recurring';
 import { APPROVAL_RULES, roleLabel } from '@/lib/approval-rules';
 import type { SettingsData, SettingsGlAccount } from '@/lib/queries/settings';
+import type { RecurringDueTone, RecurringRow } from '@/lib/queries/recurring';
 import { fmt } from '@/lib/format';
 import './settings.css';
 
 type ToneMeta = { label: string; bg: string; ink: string };
+
+const DUE_TONE: Record<RecurringDueTone, { bg: string; ink: string }> = {
+  overdue: { bg: '--overdue-bg', ink: '--overdue-ink' },
+  soon: { bg: '--review-bg', ink: '--review-ink' },
+  upcoming: { bg: '--scheduled-bg', ink: '--scheduled-ink' },
+};
 
 const GL_TYPE_TONE: Record<string, ToneMeta> = {
   expense: { label: 'Expense', bg: '--draft-bg', ink: '--draft-ink' },
@@ -46,6 +54,101 @@ function GlTypePill({ type }: { type: string }) {
 
 type Draft = { code: string; name: string; type: string };
 const emptyDraft = (): Draft => ({ code: '', name: '', type: 'expense' });
+
+function RecurringSection({ rows }: { rows: RecurringRow[] }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+
+  const generate = (id: string) => {
+    if (pending) return;
+    setGeneratingId(id);
+    startTransition(async () => {
+      const billId = await generateBillFromTemplate(id);
+      router.push(`/bills/${billId}`);
+    });
+  };
+
+  return (
+    <div className="stage">
+      <div className="stage-head">
+        <span className="stage-ic"><Icon name="repeat" size={14} /></span>
+        <span className="stage-title">Recurring schedules</span>
+        <span className="stage-count">{rows.length} schedule{rows.length !== 1 ? 's' : ''}</span>
+        <span className="stage-spacer" />
+        <span className="stage-tag"><Icon name="calendar-clock" size={12} />Auto-draft</span>
+      </div>
+      <div className="stage-body">
+        {rows.length === 0 ? (
+          <div className="set-empty">
+            <Icon name="repeat" size={18} />
+            No recurring schedules yet.
+          </div>
+        ) : (
+          <table className="set-rec">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th className="c-freq">Frequency</th>
+                <th className="c-amt">Amount</th>
+                <th className="c-next">Next run</th>
+                <th className="c-gen" aria-label="generate" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const tone = DUE_TONE[r.dueTone];
+                const isGenerating = pending && generatingId === r.id;
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      <div className="set-rec-vendor">
+                        <span className="set-rec-mono">{r.mono}</span>
+                        <div className="set-rec-vmeta">
+                          <div className="set-rec-vname">{r.vendor}</div>
+                          <div className="set-rec-desc">{r.description}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="c-freq">
+                      <span className="set-rec-freq">{r.frequencyLabel}</span>
+                    </td>
+                    <td className="c-amt">
+                      <span className="set-rec-amt">{fmt(r.amount)}</span>
+                    </td>
+                    <td className="c-next">
+                      <div className="set-rec-next">
+                        <span className="set-rec-date">{r.nextRun}</span>
+                        <span className="pill" style={{ background: `var(${tone.bg})`, color: `var(${tone.ink})` }}>
+                          {r.dueText}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="c-gen">
+                      <button
+                        type="button"
+                        className="btn btn-ghost set-rec-gen"
+                        onClick={() => generate(r.id)}
+                        disabled={pending}
+                      >
+                        <Icon name={isGenerating ? 'loader' : 'file-plus'} size={14} className={isGenerating ? 'spin' : ''} />
+                        {isGenerating ? 'Generating…' : 'Generate now'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <div className="set-note">
+          <Icon name="info" size={13} />
+          Generating a bill drafts the next invoice into the approval queue and rolls the schedule forward.
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SettingsView({ data }: { data: SettingsData }) {
   const router = useRouter();
@@ -279,6 +382,9 @@ export function SettingsView({ data }: { data: SettingsData }) {
               </table>
             </div>
           </div>
+
+          {/* Recurring schedules */}
+          <RecurringSection rows={data.recurring} />
 
           {/* Approval rules */}
           <div className="stage">
