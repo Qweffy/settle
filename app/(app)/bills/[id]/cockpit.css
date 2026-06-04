@@ -49,6 +49,16 @@
   .banner .bn-text b { font-weight: 700; }
   .banner .bn-spacer { flex: 1; }
   .banner .bn-link { font: 600 12.5px var(--font-ui); color: var(--review-ink); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+  /* failed-payment recovery card (the design's .payfail) */
+  .payfail { margin: 2px 24px 12px; border: 1px solid color-mix(in srgb, var(--failed-solid) 34%, var(--border-1)); border-radius: 10px; overflow: hidden; }
+  .payfail .pf-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; }
+  .payfail .pf-ic { width: 34px; height: 34px; border-radius: 8px; background: var(--failed-bg); color: var(--failed-ink); display: grid; place-items: center; flex-shrink: 0; }
+  .payfail .pf-ic .icon { width: 17px; height: 17px; }
+  .payfail .pf-main { flex: 1; min-width: 0; }
+  .payfail .pf-t { font: 600 13px var(--font-ui); color: var(--failed-ink); }
+  .payfail .pf-s { font: 500 11.5px var(--font-ui); color: var(--fg-2); margin-top: 2px; }
+  .payfail .pf-actions { display: flex; gap: 7px; padding: 0 14px 13px; }
   .banner .bn-link .icon { width: 14px; height: 14px; }
 
   /* ============================== 3-PANEL BODY */
@@ -264,7 +274,4 @@
   }
 }
 
-/* toast lives at viewport level (fixed), so it sits outside the scoped tree */
-.screen-cockpit-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-1); border-radius: 10px; box-shadow: var(--shadow-modal); padding: 11px 16px; font: 600 13px var(--font-ui); color: var(--fg-1); animation: cockpit-tup .16s ease; }
-@keyframes cockpit-tup { from { opacity: 0; transform: translate(-50%, 8px); } }
-.screen-cockpit-toast .icon { width: 16px; height: 16px; color: var(--paid-solid); }
+/* toast → shared <Toast> component (app/styles/toast.css) */

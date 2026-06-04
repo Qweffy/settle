@@ -166,6 +166,36 @@ function Activity({ items }: { items: ActivityItem[] }) {
   );
 }
 
+// Non-blocking sync banner (the design's `.banner.amber`): an integration that
+// fell behind, surfaced without blocking the dashboard. Retry shows progress;
+// Dismiss hides it for the session. Fails at the smallest scope — the page works.
+function SyncBanner() {
+  const [state, setState] = useState<'error' | 'syncing' | 'gone'>('error');
+  if (state === 'gone') return null;
+  const syncing = state === 'syncing';
+  const retry = () => {
+    setState('syncing');
+    setTimeout(() => setState('gone'), 1300);
+  };
+  return (
+    <div className="banner amber">
+      <Icon name="refresh-cw" size={18} className={'bn-ic' + (syncing ? ' spin' : '')} />
+      <div className="bn-main">
+        <div className="bn-t">{syncing ? 'Syncing with QuickBooks…' : 'Couldn’t sync with QuickBooks'}</div>
+        <div className="bn-s">
+          {syncing ? 'Posting 14 bills to the ledger' : '14 bills are waiting to post · last synced 2h ago'}
+        </div>
+      </div>
+      {!syncing && (
+        <div className="bn-acts">
+          <button className="bn-btn solid-amber" onClick={retry}><Icon name="refresh-cw" size={12} />Retry</button>
+          <button className="bn-btn ghost-amber" onClick={() => setState('gone')}>Dismiss</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DashboardView({ data }: { data: DashboardData }) {
   const [range, setRange] = useState('This month');
   return (
@@ -185,6 +215,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
             <button className="btn btn-ghost"><Icon name="arrow-left-right" size={15} />Reconcile</button>
           </div>
         </div>
+
+        <SyncBanner />
 
         <div className="scards">
           {data.score.map((c) => <Scorecard key={c.label} c={c} />)}

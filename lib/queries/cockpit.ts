@@ -50,6 +50,15 @@ export type CockpitData = {
   timeline: TimelineNode[];
   roles: Person[];
   approvalGate: { requiredRole: string; label: string; canApprove: boolean } | null;
+  payment: {
+    status: 'scheduled' | 'processing' | 'paid' | 'failed';
+    amount: number;
+    method: string;
+    reference: string | null;
+    date: string;
+    account: string;
+    reason: string;
+  } | null;
 };
 
 // "Jun 9, 2026"
@@ -89,6 +98,7 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
       flags: true,
       comments: { with: { author: true } },
       approvals: { with: { actor: true } },
+      payments: true,
     },
   });
   if (!bill) return null;
@@ -350,7 +360,25 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
     };
   }
 
-  return { bill: billShape, lines, totals, flags, history, timeline, roles, approvalGate };
+  /* ---------- payment ---------- */
+  // Surface the latest payment attempt so the cockpit can show a recovery card
+  // when it failed (the design's `.payfail`). Newest by pay date wins.
+  const lastPayment = [...bill.payments].sort(
+    (a, b) => (b.payDate?.getTime() ?? 0) - (a.payDate?.getTime() ?? 0),
+  )[0];
+  const payment: CockpitData['payment'] = lastPayment
+    ? {
+        status: lastPayment.status,
+        amount: lastPayment.amountCents / 100,
+        method: METHOD_LABEL[lastPayment.method] ?? lastPayment.method,
+        reference: lastPayment.referenceNumber,
+        date: lastPayment.payDate ? shortDate(lastPayment.payDate) : '—',
+        account: billShape.account,
+        reason: lastPayment.method === 'card' ? 'card declined' : 'insufficient funds',
+      }
+    : null;
+
+  return { bill: billShape, lines, totals, flags, history, timeline, roles, approvalGate, payment };
 }
 
 // Resolve mention names into the comment body. The seed stores the prose

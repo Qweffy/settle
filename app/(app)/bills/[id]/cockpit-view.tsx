@@ -21,6 +21,7 @@ import {
 } from '@/lib/data/cockpit';
 import type { CockpitData } from '@/lib/queries/cockpit';
 import { roleLabel } from '@/lib/approval-rules';
+import { Toast, type ToastData } from '@/components/toast';
 import './cockpit.css';
 
 type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
@@ -61,17 +62,23 @@ function BillHeader({
   flagCount,
   busy,
   approvalGate,
+  payment,
   onApprove,
   onReject,
   onSchedule,
+  onRetryPayment,
+  onChangeAccount,
 }: {
   bill: Bill;
   flagCount: number;
   busy: boolean;
   approvalGate: CockpitData['approvalGate'];
+  payment: CockpitData['payment'];
   onApprove: () => void;
   onReject: () => void;
   onSchedule: () => void;
+  onRetryPayment: () => void;
+  onChangeAccount: () => void;
 }) {
   const blockedByGate = approvalGate != null && !approvalGate.canApprove;
   return (
@@ -120,6 +127,28 @@ function BillHeader({
           </button>
         </div>
       </div>
+      {payment?.status === 'failed' && (
+        <div className="payfail">
+          <div className="pf-row">
+            <span className="pf-ic"><Icon name="alert-triangle" size={17} /></span>
+            <div className="pf-main">
+              <div className="pf-t">Payment failed — {payment.reason}</div>
+              <div className="pf-s">
+                {fmt(payment.amount)} to {b.vendor} on {payment.date} didn’t clear from {payment.account}
+                {payment.reference ? ` · ${payment.reference}` : ''}.
+              </div>
+            </div>
+          </div>
+          <div className="pf-actions">
+            <button className="btn btn-primary btn-sm" onClick={onRetryPayment} disabled={busy}>
+              <Icon name="refresh-cw" size={14} />Retry payment
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={onChangeAccount} disabled={busy}>
+              <Icon name="wallet" size={14} />Change account
+            </button>
+          </div>
+        </div>
+      )}
       {b.flagged && (
         <div className="banner">
           <Icon name="alert-triangle" size={18} className="bn-ic" />
@@ -516,11 +545,11 @@ function RightPanel({ timeline, people, onSend }: { timeline: TimelineNode[]; pe
 export function CockpitView({ data }: { data: CockpitData }) {
   const { bill, lines, totals, flags, history, roles } = data;
   const [timeline, setTimeline] = useState<TimelineNode[]>(data.timeline);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [busy, startTransition] = useTransition();
   const router = useRouter();
-  const showToast = (msg: string) => {
-    setToast(msg);
+  const showToast = (msg: string, tone?: ToastData['tone']) => {
+    setToast({ title: msg, tone });
     setTimeout(() => setToast(null), 2600);
   };
 
@@ -544,13 +573,13 @@ export function CockpitView({ data }: { data: CockpitData }) {
         // Business errors (the approval gate) come back as data, not a throw.
         if (res && res.ok === false) {
           revert?.();
-          showToast(res.error);
+          showToast(res.error, 'red');
           return;
         }
         router.refresh();
       } catch {
         revert?.();
-        showToast('Something went wrong — please try again');
+        showToast('Something went wrong — please try again', 'red');
       }
     });
   };
@@ -560,6 +589,16 @@ export function CockpitView({ data }: { data: CockpitData }) {
   const handleSchedule = () =>
     run('Payment scheduled', () =>
       schedulePayment(bill.id, METHOD_KEY[bill.method] ?? 'ach', isoDaysFromNow(5)),
+    );
+  // Recovery actions for a failed payment (the design's `.payfail`): retry on the
+  // same method, or re-route via ACH from the operating account.
+  const handleRetryPayment = () =>
+    run('Retrying payment', () =>
+      schedulePayment(bill.id, METHOD_KEY[bill.method] ?? 'ach', isoDaysFromNow(1)),
+    );
+  const handleChangeAccount = () =>
+    run('Re-routing via ACH · Operating ••4821', () =>
+      schedulePayment(bill.id, 'ach', isoDaysFromNow(1)),
     );
 
   const handleResolveFlag = (flagId: string, how: 'accept' | 'dismiss', revert: () => void) => {
@@ -606,9 +645,12 @@ export function CockpitView({ data }: { data: CockpitData }) {
           flagCount={flags.length}
           busy={busy}
           approvalGate={data.approvalGate}
+          payment={data.payment}
           onApprove={handleApprove}
           onReject={handleReject}
           onSchedule={handleSchedule}
+          onRetryPayment={handleRetryPayment}
+          onChangeAccount={handleChangeAccount}
         />
         <div className="cockpit">
           <LeftPanel bill={bill} lines={lines} totals={totals} />
@@ -616,12 +658,7 @@ export function CockpitView({ data }: { data: CockpitData }) {
           <RightPanel timeline={timeline} people={roles} onSend={addComment} />
         </div>
       </div>
-      {toast && (
-        <div className="screen-cockpit-toast">
-          <Icon name="check-circle-2" size={16} />
-          {toast}
-        </div>
-      )}
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </>
   );
 }
