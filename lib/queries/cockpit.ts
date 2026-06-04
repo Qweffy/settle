@@ -16,8 +16,6 @@ import type {
   Person,
 } from '@/lib/data/cockpit';
 
-// The flagship bill the cockpit route is wired to.
-const COCKPIT_BILL_ID = 'b-wex-0529';
 const DAY = 86_400_000;
 
 const TERMS_LABEL: Record<string, string> = {
@@ -78,9 +76,9 @@ function dueHintLabel(due: Date | null): string {
 
 const sevOf = (s: string): FlagSev => (s === 'high' || s === 'med' || s === 'low' ? s : 'low');
 
-export async function getCockpitData(): Promise<CockpitData> {
+export async function getCockpitData(billId: string): Promise<CockpitData | null> {
   const bill = await db.query.bills.findFirst({
-    where: eq(bills.id, COCKPIT_BILL_ID),
+    where: eq(bills.id, billId),
     with: {
       vendor: true,
       createdByUser: true,
@@ -90,7 +88,7 @@ export async function getCockpitData(): Promise<CockpitData> {
       approvals: { with: { actor: true } },
     },
   });
-  if (!bill) throw new Error(`Cockpit bill ${COCKPIT_BILL_ID} not found`);
+  if (!bill) return null;
 
   // Org users → drive @-mentions in the composer + actor lookups.
   const userRows = await db.select().from(users).where(eq(users.orgId, DEMO_ORG));
@@ -195,7 +193,7 @@ export async function getCockpitData(): Promise<CockpitData> {
         icon: 'file-plus-2',
         who: creator?.name ?? 'Settle',
         mono: creator?.mono ?? 'S',
-        text: 'created this bill from an emailed PDF',
+        text: bill.ocrStatus === 'done' ? 'created this bill from a captured invoice' : 'created this bill from an emailed PDF',
         time: timelineStamp(bill.createdAt),
       } satisfies TimelineEvent,
     });

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import { runCapture } from '@/lib/actions/ocr';
+import { createBillFromCapture } from '@/lib/actions/bills';
 import type { OcrResult, OcrFlag, OcrLine } from '@/lib/ocr';
 import {
   FORWARD_EMAIL,
@@ -297,12 +299,18 @@ function StageDraft({
   totals,
   flags,
   usedAI,
+  onSave,
+  saving,
+  canSave,
 }: {
   draft: Draft;
   lineItems: LineItem[];
   totals: Totals;
   flags: ReviewFlag[];
   usedAI: boolean;
+  onSave: () => void;
+  saving: boolean;
+  canSave: boolean;
 }) {
   const b = draft;
   const [lines, setLines] = useState<LineItem[]>(lineItems);
@@ -375,8 +383,11 @@ function StageDraft({
               ? <span className="df-hint"><Icon name="shield-alert" size={13} style={{ color: 'var(--failed-ink)' }} />Resolve {highRisk} high-risk flag{highRisk === 1 ? '' : 's'} before approval</span>
               : <span className="df-hint"><Icon name="check" size={13} style={{ color: 'var(--paid-ink)' }} />No high-risk flags open</span>}
             <span className="spacer" />
-            <button className="btn btn-ghost"><Icon name="trash-2" size={15} />Discard</button>
-            <button className="btn btn-primary"><Icon name="check" size={15} />Save as draft for approval</button>
+            <button className="btn btn-ghost" disabled={saving}><Icon name="trash-2" size={15} />Discard</button>
+            <button className="btn btn-primary" onClick={onSave} disabled={!canSave || saving} title={canSave ? undefined : 'Process the invoice first'}>
+              <Icon name={saving ? 'loader' : 'check'} size={15} className={saving ? 'spin' : ''} />
+              {saving ? 'Saving…' : 'Save as draft for approval'}
+            </button>
           </div>
         </div>
 
@@ -431,13 +442,23 @@ function StageDraft({
 }
 
 export default function CapturePage() {
+  const router = useRouter();
   const [result, setResult] = useState<OcrResult | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isSaving, startSave] = useTransition();
 
   const handleProcess = () => {
     startTransition(async () => {
       const res = await runCapture();
       setResult(res);
+    });
+  };
+
+  const handleSave = () => {
+    if (!result) return;
+    startSave(async () => {
+      const newId = await createBillFromCapture(result.extraction, result.flags, 'v-landfill');
+      router.push(`/bills/${newId}`);
     });
   };
 
@@ -474,7 +495,7 @@ export default function CapturePage() {
         </div>
         {/* key remounts the draft so its local state (GL edits, resolved flags)
             resets to the freshly mapped data when a new result arrives. */}
-        <StageDraft key={result ? draft.inv : 'mock'} draft={draft} lineItems={lineItems} totals={totals} flags={reviewFlags} usedAI={usedAI} />
+        <StageDraft key={result ? draft.inv : 'mock'} draft={draft} lineItems={lineItems} totals={totals} flags={reviewFlags} usedAI={usedAI} onSave={handleSave} saving={isSaving} canSave={!!result} />
       </div>
     </div>
   );

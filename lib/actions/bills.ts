@@ -4,8 +4,9 @@ import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
-import { bills, approvalEvents, payments, activityLog, billComments, billFlags } from '@/db/schema';
+import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, vendors } from '@/db/schema';
 import { assertTransition, type BillLifecycle } from '@/lib/status';
+import type { OcrExtraction, OcrFlag } from '@/lib/ocr';
 import { getCurrentUserId } from './session';
 
 type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
@@ -13,9 +14,10 @@ type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
 const rid = (p: string) => `${p}-${randomUUID()}`;
 
 function revalidateAll() {
-  for (const p of ['/dashboard', '/bills', '/bills/cockpit', '/approvals', '/payments', '/reports', '/vendors']) {
+  for (const p of ['/dashboard', '/bills', '/approvals', '/payments', '/reports', '/vendors']) {
     revalidatePath(p);
   }
+  revalidatePath('/bills/[id]', 'page');
 }
 
 async function loadBill(billId: string) {
@@ -82,7 +84,7 @@ export async function addComment(billId: string, body: string, mentions: string[
   const actor = await getCurrentUserId();
   await db.insert(billComments).values({ id: rid('cmt'), billId, authorId: actor, body, mentions });
   await logActivity(b.orgId, billId, actor, 'commented', 'commented on', null);
-  revalidatePath('/bills/cockpit');
+  revalidatePath('/bills/[id]', 'page');
   revalidatePath('/dashboard');
 }
 
@@ -119,4 +121,81 @@ export async function markPaid(billId: string) {
   await db.update(payments).set({ status: 'paid' }).where(eq(payments.billId, billId));
   await logActivity(b.orgId, billId, actor, 'paid', 'marked paid', b.totalCents);
   revalidateAll();
+}
+
+// Persist a reviewed OCR draft (from the Capture screen) as a real bill,
+// submitted straight into the approval queue. Returns the new bill id so the
+// client can route to its cockpit.
+export async function createBillFromCapture(
+  extraction: OcrExtraction,
+  flags: OcrFlag[],
+  vendorId: string,
+): Promise<string> {
+  const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId));
+  if (!vendor) throw new Error(`Vendor not found: ${vendorId}`);
+  const actor = await getCurrentUserId();
+  const billId = rid('b');
+  const now = new Date();
+
+  const toCents = (n: number) => Math.round(n * 100);
+  const parseDate = (s: string): Date | null => {
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  await db.insert(bills).values({
+    id: billId,
+    orgId: vendor.orgId,
+    vendorId: vendor.id,
+    invoiceNumber: extraction.invoiceNumber,
+    status: 'pending_approval',
+    reviewStatus: flags.length > 0 ? 'flagged' : 'clean',
+    ocrStatus: 'done',
+    issueDate: parseDate(extraction.issueDate),
+    dueDate: parseDate(extraction.dueDate),
+    currency: extraction.currency || 'USD',
+    subtotalCents: toCents(extraction.subtotal),
+    taxCents: toCents(extraction.tax),
+    totalCents: toCents(extraction.total),
+    memo: `Captured from ${extraction.invoiceNumber} via OCR`,
+    glAccount: extraction.lineItems[0]?.glGuess ?? vendor.defaultGl ?? null,
+    createdBy: actor,
+    submittedAt: now,
+  });
+
+  if (extraction.lineItems.length > 0) {
+    await db.insert(billLineItems).values(
+      extraction.lineItems.map((l, i) => ({
+        id: rid('li'),
+        billId,
+        description: l.description,
+        quantity: l.quantity != null ? Math.round(l.quantity) : null,
+        unitPriceCents: l.unitPrice != null ? toCents(l.unitPrice) : null,
+        amountCents: toCents(l.amount),
+        glLabel: l.glGuess,
+        sortOrder: i,
+      })),
+    );
+  }
+
+  if (flags.length > 0) {
+    await db.insert(billFlags).values(
+      flags.map((f) => ({
+        id: rid('flag'),
+        billId,
+        type: f.type,
+        severity: f.severity,
+        title: f.title,
+        message: f.message,
+        lineRef: f.lineRef ?? null,
+        status: 'open' as const,
+      })),
+    );
+  }
+
+  await db.insert(approvalEvents).values({ id: rid('appr'), billId, actorId: actor, action: 'submit' });
+  await logActivity(vendor.orgId, billId, actor, 'created', 'created this bill from a captured invoice', toCents(extraction.total));
+  await logActivity(vendor.orgId, billId, actor, 'submitted', 'submitted for approval', null);
+  revalidateAll();
+  return billId;
 }

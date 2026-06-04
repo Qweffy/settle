@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import {
@@ -43,6 +44,7 @@ type SortKey = 'vendor' | 'amount' | 'due';
 type Sort = { key: SortKey; dir: 'asc' | 'desc' };
 
 export function BillsView({ data }: { data: BillsData }) {
+  const router = useRouter();
   const { tabs: TABS, rows: ROWS } = data;
   const openCount = ROWS.filter((r) => !['paid', 'failed'].includes(r.status)).length;
 
@@ -257,7 +259,7 @@ export function BillsView({ data }: { data: BillsData }) {
             {rows.map((r) => {
               const on = sel.has(r.id);
               return (
-                <tr key={r.id} className={on ? 'sel' : ''} onClick={() => toggleRow(r.id)}>
+                <tr key={r.id} className={on ? 'sel' : ''} onClick={() => router.push(`/bills/${r.id}`)}>
                   <td className="col-check"><Check state={on ? 'on' : 'off'} onClick={() => toggleRow(r.id)} /></td>
                   <td>
                     <div className="v-cell">
