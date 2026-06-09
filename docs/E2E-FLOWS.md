@@ -5,6 +5,7 @@ spec that covers each one. Use it to demo the app or to verify a deploy.
 
 - **Live demo:** https://settle-qweffys-projects.vercel.app
 - **Roles:** top-right **"viewing as"** switches actor — **AP Clerk** (Dana) · **Approver** (Marcus) · **Controller** (Lena). The actor is enforced server-side, so it changes what you can do.
+- **Entities:** top-left **org switcher** — **Summit Waste Services**, **Summit Transfer Stations**, **Cascade Recycling Co.** Each is a real org with its own vendors, bills and people; switching scopes every screen — the bills, dashboard totals, approvals, payments, aging and tabs all change (persisted in a cookie).
 - **Demo clock** is pinned, so "overdue / due-soon / aging" are stable.
 - Automated equivalents live in `tests/e2e/*.spec.ts` (14 specs / 19 cases); run them with `npm run test:e2e`.
 

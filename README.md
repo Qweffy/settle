@@ -39,7 +39,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **Invoice‑centric cockpit** — image + coding + a shared, timestamped, auditable comment thread on one screen (the Stampli pattern), so the "why is this surcharge higher?" conversation lives on the bill instead of in scattered email.
 - **AP controls** — code-side **duplicate detection** (warns when the same vendor + invoice # arrives twice) and an **approval-rules engine** that routes large bills to a senior role (over $10k → Approver, over $50k → Controller), enforced server-side and surfaced as a gate in the cockpit.
 
-Beyond the core, the build also ships **multi-select table filters** and **saved views**, **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts) with reusable **allocation templates**, **expense vs. item** line coding, a simulated **AP forwarding inbox**, a **Settings** page (chart of accounts + recurring schedules + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
+Beyond the core, the build also ships a **multi-entity switcher** (the topbar org switch scopes every screen — each entity has its own vendors, bills and people), **multi-select table filters** and **saved views**, **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts) with reusable **allocation templates**, **expense vs. item** line coding, a simulated **AP forwarding inbox**, a **Settings** page (chart of accounts + recurring schedules + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
 
 ---
 
@@ -73,7 +73,7 @@ Beyond the core, the build also ships **multi-select table filters** and **saved
 
 ## What I left out (and why)
 
-- **Real auth / multi‑tenant** — replaced by the demo role switcher (above). The org/user model is there to enable it.
+- **Real auth** — replaced by the demo role switcher (above); no login. Multi-*entity* is real, though: the topbar switcher persists the active org in a cookie and every query scopes by it across three seeded entities — what's out is auth-isolated multi-*tenancy* (a login per tenant), which is an auth concern, not a data-model one.
 - **A real payment rail / bank integration** — payments are simulated; not where the product judgment is, and out of scope for a take‑home.
 - **2‑way accounting sync (QuickBooks/NetSuite)** — realistic in Ramp but not meaningfully mockable in the timebox; the activity feed shows a representative "synced from QuickBooks" event, and the dashboard carries a non-blocking sync-failure banner so the *failure* path is designed, not just the happy one.
 - **Global/FX mass payments + a tax engine (1099/W‑8/VAT)** — deliberately dropped after the competitor benchmark: overkill for a US‑domestic hauler.
