@@ -267,7 +267,15 @@ function CenterPanel({
 }) {
   const [lines, setLines] = useState<Line[]>(initialLines);
   const [splits, setSplits] = useState<Set<string>>(() => new Set(initialLines.filter((l) => l.split).map((l) => l.id)));
-  const [resolved, setResolved] = useState<Record<string, 'accept' | 'dismiss'>>({});
+  // Seed from the persisted flag status so a capture-time (or prior) triage shows
+  // as resolved instead of re-appearing as open on every load.
+  const [resolved, setResolved] = useState<Record<string, 'accept' | 'dismiss'>>(() =>
+    Object.fromEntries(
+      flags
+        .filter((f) => f.status !== 'open')
+        .map((f) => [f.id, f.status === 'accepted' ? 'accept' : 'dismiss']),
+    ),
+  );
 
   const setGL = (id: string, gl: string) => setLines((ls) => ls.map((l) => (l.id === id ? { ...l, gl } : l)));
   const toggleSplit = (id: string) =>
@@ -642,7 +650,7 @@ export function CockpitView({ data }: { data: CockpitData }) {
       <div className="screen-cockpit">
         <BillHeader
           bill={bill}
-          flagCount={flags.length}
+          flagCount={flags.filter((f) => f.status === 'open').length}
           busy={busy}
           approvalGate={data.approvalGate}
           payment={data.payment}

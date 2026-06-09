@@ -189,6 +189,7 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
     title: f.title,
     reason: f.message,
     cite: f.lineRef ?? '',
+    status: f.status,
   }));
 
   /* ---------- history: vendor's prior invoices ---------- */

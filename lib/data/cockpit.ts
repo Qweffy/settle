@@ -60,19 +60,19 @@ export const TOTALS: Totals = { subtotal: 52180.0, tax: 0.0, total: 52180.0 };
 export const GL_OPTIONS: string[] = ['Fuel', 'Tipping Fees', 'Fleet Maintenance', 'Equipment', 'Insurance', 'Software', 'Office'];
 
 export type FlagSev = 'high' | 'med' | 'low';
-export type Flag = { id: string; sev: FlagSev; title: string; reason: string; cite: string };
+export type Flag = { id: string; sev: FlagSev; title: string; reason: string; cite: string; status: 'open' | 'accepted' | 'dismissed' };
 
 // ---- AI Bill Review ----
 export const FLAGS: Flag[] = [
   { id: 'f1', sev: 'high', title: 'Fuel surcharge 32% above 6-mo average',
     reason: 'This statement’s surcharge is $2,890.00 vs ~$2,190 typical. WEX indexes the surcharge to the diesel spot price, which spiked in late May.',
-    cite: 'Line 2 · Fuel surcharge' },
+    cite: 'Line 2 · Fuel surcharge', status: 'open' },
   { id: 'f2', sev: 'med', title: 'Unit price up 9% vs prior statement',
     reason: '$3.42/gal this period vs $3.14/gal on STMT-0428. Above the 5% variance threshold on your Fuel GL.',
-    cite: 'Line 1 · Diesel' },
+    cite: 'Line 1 · Diesel', status: 'open' },
   { id: 'f3', sev: 'low', title: 'Gallons 12% above monthly average',
     reason: '14,200 gal vs ~12,700 gal trailing average. Within seasonal range for May; no action usually needed.',
-    cite: 'Line 1 · Diesel' },
+    cite: 'Line 1 · Diesel', status: 'open' },
 ];
 
 export type SevMeta = { label: string; solid: string; bg: string; ink: string };

@@ -14,8 +14,14 @@ test('OCR capture → save persists a real bill', async ({ page }) => {
   // The AI review surfaced its 4 flags.
   await expect(page.locator('.dai-head')).toContainText('4 open');
 
+  // Triage one flag in capture — the resolution must persist onto the saved bill.
+  await page.locator('.fbtn.accept').first().click();
+  await expect(page.locator('.dai-head')).toContainText('3 open');
+
   await save.click();
   await expect(page).toHaveURL(/\/bills\/b-/, { timeout: 20_000 });
   await expect(page.getByText('Regional Landfill Authority').first()).toBeVisible();
   await expect(page.getByText('In approval').first()).toBeVisible();
+  // The cockpit reflects the capture-time triage (flag status persisted, not reset).
+  await expect(page.locator('.ai-count')).toContainText('3 open');
 });
