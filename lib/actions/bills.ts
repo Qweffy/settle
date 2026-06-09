@@ -7,7 +7,6 @@ import { db } from '@/db';
 import { bills, approvalEvents, payments, activityLog, billComments, billFlags, billLineItems, lineItemSplits, vendors, users } from '@/db/schema';
 import { assertTransition, canTransition, isEditable, type BillLifecycle } from '@/lib/status';
 import type { OcrExtraction, OcrFlag } from '@/lib/ocr';
-import { DEMO_ORG } from '@/lib/demo';
 import { requiredApproval, roleSatisfies, roleLabel } from '@/lib/approval-rules';
 import { runAction, ActionError, type ActionResult } from '@/lib/result';
 import {
@@ -21,7 +20,7 @@ import {
   bulkAdvanceSchema,
   importBillsSchema,
 } from '@/lib/validation';
-import { getCurrentUserId } from './session';
+import { getCurrentUserId, getActiveOrg } from './session';
 
 type PaymentMethod = 'ach' | 'check' | 'wire' | 'card';
 
@@ -138,6 +137,7 @@ export async function checkDuplicate(
   const target = invoiceNumber.trim();
   if (vendorId === '' || target === '') return null;
 
+  const org = await getActiveOrg();
   const candidates = await db
     .select({
       id: bills.id,
@@ -146,7 +146,7 @@ export async function checkDuplicate(
       status: bills.status,
     })
     .from(bills)
-    .where(and(eq(bills.orgId, DEMO_ORG), eq(bills.vendorId, vendorId)));
+    .where(and(eq(bills.orgId, org), eq(bills.vendorId, vendorId)));
 
   const match = candidates.find(
     (c) => c.id !== excludeBillId && c.invoiceNumber.trim() === target,
@@ -576,7 +576,8 @@ export type ImportRow = {
 export async function importBills(rows: ImportRow[]): Promise<{ created: number; skipped: number }> {
   parseOrThrow(importBillsSchema, rows);
   const actor = await getCurrentUserId();
-  const orgVendors = await db.select().from(vendors).where(eq(vendors.orgId, DEMO_ORG));
+  const org = await getActiveOrg();
+  const orgVendors = await db.select().from(vendors).where(eq(vendors.orgId, org));
   const byName = new Map(orgVendors.map((v) => [v.name.trim().toLowerCase(), v]));
 
   let created = 0;

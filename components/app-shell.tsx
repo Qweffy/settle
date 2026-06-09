@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { Icon } from '@/components/icon';
+import { EntityProvider } from '@/components/entity-context';
 import {
   NAV,
   ENTITIES,
@@ -13,7 +14,7 @@ import {
   CMD_RECENT,
   CMD_NAV,
 } from '@/lib/data/shell';
-import { setViewingActor } from '@/lib/actions/session';
+import { setViewingActor, setActiveEntity } from '@/lib/actions/session';
 
 function Logo({ size = 26 }: { size?: number }) {
   return (
@@ -66,10 +67,10 @@ function Sidebar() {
   );
 }
 
-function Topbar({ onSearch, initialRoleIdx }: { onSearch: () => void; initialRoleIdx: number }) {
+function Topbar({ onSearch, initialRoleIdx, initialEntityIdx }: { onSearch: () => void; initialRoleIdx: number; initialEntityIdx: number }) {
   const router = useRouter();
   const [menu, setMenu] = useState<'entity' | 'role' | null>(null);
-  const [entityIdx, setEntityIdx] = useState(0);
+  const [entityIdx, setEntityIdx] = useState(initialEntityIdx);
   const [roleIdx, setRoleIdx] = useState(initialRoleIdx);
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -88,7 +89,7 @@ function Topbar({ onSearch, initialRoleIdx }: { onSearch: () => void; initialRol
           <div className="menu" style={{ top: 'calc(100% + 7px)', left: 0 }}>
             <div className="menu-label">Switch entity</div>
             {ENTITIES.map((e, i) => (
-              <div key={e.id} className="menu-item" onClick={() => { setEntityIdx(i); setMenu(null); }}>
+              <div key={e.id} className="menu-item" onClick={() => { setEntityIdx(i); setMenu(null); void setActiveEntity(e.id); }}>
                 <span className="mono">{e.mono}</span>
                 <span className="m">
                   <span className="t">{e.name}</span>
@@ -170,7 +171,7 @@ type CmdItem = {
   href?: string;
 };
 
-function CommandPalette({ onClose }: { onClose: () => void }) {
+function CommandPalette({ onClose, entityName }: { onClose: () => void; entityName: string }) {
   const router = useRouter();
   const [q, setQ] = useState('');
   const [active, setActive] = useState(0);
@@ -273,7 +274,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
           <span className="fi"><span className="kbd">↵</span>Open</span>
           <span className="fi"><span className="kbd">esc</span>Close</span>
           <span className="grow" />
-          <span className="fi">Summit Waste Services</span>
+          <span className="fi">{entityName}</span>
         </div>
       </div>
     </div>
@@ -300,7 +301,7 @@ function isTypingInto(el: Element | null): boolean {
   return (el as HTMLElement).isContentEditable;
 }
 
-export function AppShell({ children, initialRoleIdx = 0 }: { children: React.ReactNode; initialRoleIdx?: number }) {
+export function AppShell({ children, initialRoleIdx = 0, initialEntityIdx = 0 }: { children: React.ReactNode; initialRoleIdx?: number; initialEntityIdx?: number }) {
   const router = useRouter();
   const [cmdkOpen, setCmdkOpen] = useState(false);
   // Timestamp of the last bare "g" press; 0 means no pending sequence.
@@ -361,10 +362,12 @@ export function AppShell({ children, initialRoleIdx = 0 }: { children: React.Rea
     <div className="app">
       <Sidebar />
       <div className="main">
-        <Topbar onSearch={() => setCmdkOpen(true)} initialRoleIdx={initialRoleIdx} />
-        <div className="content">{children}</div>
+        <Topbar onSearch={() => setCmdkOpen(true)} initialRoleIdx={initialRoleIdx} initialEntityIdx={initialEntityIdx} />
+        <div className="content">
+          <EntityProvider entity={ENTITIES[initialEntityIdx] ?? ENTITIES[0]}>{children}</EntityProvider>
+        </div>
       </div>
-      {cmdkOpen && <CommandPalette onClose={() => setCmdkOpen(false)} />}
+      {cmdkOpen && <CommandPalette onClose={() => setCmdkOpen(false)} entityName={ENTITIES[initialEntityIdx]?.name ?? ENTITIES[0].name} />}
     </div>
   );
 }

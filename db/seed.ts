@@ -176,6 +176,144 @@ const RECURRING: Recurring[] = [
   { id: 'rt-wastequip', vendor: 'v-wastequip', frequency: 'monthly', description: 'Container fleet — monthly lease', amount: 24760, gl: 'Equipment', nextRun: 5 },
 ];
 
+/* ------------------- secondary entities (switcher) ------------------- */
+// Smaller, real datasets for the other two entities so switching org in the
+// topbar actually changes the data. Summit Waste (above) stays the default and
+// is left untouched, so the e2e suite — which never switches entity — is stable.
+type Terms = 'net_15' | 'net_30' | 'net_45' | 'net_60' | 'due_on_receipt';
+type Method = 'ach' | 'check' | 'wire' | 'card';
+type BillStatus = 'draft' | 'pending_approval' | 'approved' | 'scheduled' | 'paid' | 'rejected';
+type PayStatus = 'scheduled' | 'processing' | 'paid' | 'failed';
+type Role = 'clerk' | 'approver' | 'controller';
+
+type OrgSeed = {
+  id: string; name: string; sub: string; mono: string;
+  people: Record<Role, [string, string]>;
+  gls: { code: string; name: string; type?: 'expense' | 'asset' }[];
+  vendors: { slug: string; name: string; mono: string; gl: string; last4: string; terms?: Terms; method?: Method }[];
+  bills: {
+    slug: string; vendor: string; invoice: string; status: BillStatus; issue: number; due: number | null;
+    gl: string; memo: string; lines: { description: string; amount: number; qty?: number; unit?: number; gl: string }[];
+    payStatus?: PayStatus; paidOn?: number; payMethod?: Method; payRef?: string;
+    approvedBy?: Role; submittedDaysAgo?: number;
+  }[];
+  activity: { actor: Role; type: string; text: string; target: string; amount: number | null; daysAgo: number; meta?: string }[];
+};
+
+const SECONDARY_ORGS: OrgSeed[] = [
+  {
+    id: 'org-sts', name: 'Summit Transfer Stations', sub: 'Operating · ••6307', mono: 'ST',
+    people: { clerk: ['Priya Nadarajah', 'PN'], approver: ['Tom Becker', 'TB'], controller: ['Renee Fox', 'RF'] },
+    gls: [
+      { code: '5020', name: 'Tipping Fees' }, { code: '5010', name: 'Fuel' },
+      { code: '1500', name: 'Equipment', type: 'asset' }, { code: '5070', name: 'Utilities' }, { code: '5060', name: 'Office' },
+    ],
+    vendors: [
+      { slug: 'wm', name: 'Waste Management', mono: 'WM', gl: 'Tipping Fees', last4: '8830' },
+      { slug: 'pse', name: 'Puget Sound Energy', mono: 'PS', gl: 'Utilities', last4: '4410' },
+      { slug: 'catfin', name: 'Caterpillar Financial', mono: 'CF', gl: 'Equipment', last4: '9920', terms: 'net_30' },
+      { slug: 'fastenal', name: 'Fastenal', mono: 'FN', gl: 'Office', last4: '2210', method: 'check' },
+    ],
+    bills: [
+      { slug: 'wm-7781', vendor: 'wm', invoice: 'WM-7781', status: 'paid', issue: -28, due: -22, gl: 'Tipping Fees', memo: 'May transfer & disposal — North station', lines: [{ description: 'Transfer & disposal tonnage', amount: 41200, gl: 'Tipping Fees' }], payStatus: 'paid', paidOn: -22, payRef: 'ACH-7781', approvedBy: 'approver' },
+      { slug: 'pse-3310', vendor: 'pse', invoice: 'PSE-3310', status: 'pending_approval', issue: -4, due: 11, gl: 'Utilities', memo: 'Electricity & gas — North + South stations', lines: [{ description: 'Electricity', amount: 8600, gl: 'Utilities' }, { description: 'Natural gas', amount: 1900, gl: 'Utilities' }], submittedDaysAgo: 2 },
+      { slug: 'catfin-9902', vendor: 'catfin', invoice: 'CAT-9902', status: 'pending_approval', issue: -3, due: 12, gl: 'Equipment', memo: 'Wheel loader — monthly lease', lines: [{ description: '966 wheel loader lease', amount: 62000, gl: 'Equipment' }], submittedDaysAgo: 1 },
+      { slug: 'fastenal-220', vendor: 'fastenal', invoice: 'FAST-220', status: 'scheduled', issue: -6, due: 9, gl: 'Office', memo: 'Shop supplies & fasteners', lines: [{ description: 'Shop supplies', amount: 1450, gl: 'Office' }], payStatus: 'scheduled', paidOn: 9, payMethod: 'check', payRef: 'CHK-220', approvedBy: 'approver' },
+      { slug: 'pse-3288', vendor: 'pse', invoice: 'PSE-3288', status: 'approved', issue: -40, due: -5, gl: 'Utilities', memo: 'April electricity — overdue', lines: [{ description: 'Electricity', amount: 9200, gl: 'Utilities' }], approvedBy: 'approver' },
+      { slug: 'fastenal-231', vendor: 'fastenal', invoice: 'FAST-231', status: 'draft', issue: -1, due: 14, gl: 'Office', memo: 'Gloves & PPE', lines: [{ description: 'Gloves & PPE', amount: 620, gl: 'Office' }] },
+    ],
+    activity: [
+      { actor: 'approver', type: 'approved', text: 'approved', target: 'Waste Management', amount: c(41200), daysAgo: -1 },
+      { actor: 'clerk', type: 'created', text: 'created', target: 'Caterpillar Financial', amount: c(62000), daysAgo: 0, meta: 'as draft' },
+    ],
+  },
+  {
+    id: 'org-crc', name: 'Cascade Recycling Co.', sub: 'Operating · ••1192', mono: 'CR',
+    people: { clerk: ['Diego Alvarez', 'DA'], approver: ['Hannah Cole', 'HC'], controller: ['Wei Lin', 'WL'] },
+    gls: [
+      { code: '5080', name: 'Hauling' }, { code: '1500', name: 'Equipment', type: 'asset' },
+      { code: '5030', name: 'Maintenance' }, { code: '5070', name: 'Utilities' }, { code: '5060', name: 'Office' },
+    ],
+    vendors: [
+      { slug: 'rumpke', name: 'Rumpke', mono: 'RM', gl: 'Hauling', last4: '5521' },
+      { slug: 'sierra', name: 'Sierra Recycling', mono: 'SR', gl: 'Hauling', last4: '1180' },
+      { slug: 'komatsu', name: 'Komatsu Finance', mono: 'KM', gl: 'Equipment', last4: '7700' },
+      { slug: 'grainger', name: 'Grainger', mono: 'GR', gl: 'Maintenance', last4: '8820', method: 'check' },
+    ],
+    bills: [
+      { slug: 'rumpke-5521', vendor: 'rumpke', invoice: 'RMP-5521', status: 'paid', issue: -30, due: -24, gl: 'Hauling', memo: 'Curbside hauling — May', lines: [{ description: 'Curbside hauling', amount: 28400, gl: 'Hauling' }], payStatus: 'paid', paidOn: -24, payRef: 'ACH-5521', approvedBy: 'approver' },
+      { slug: 'sierra-118', vendor: 'sierra', invoice: 'SRA-118', status: 'pending_approval', issue: -3, due: 12, gl: 'Hauling', memo: 'Commodity processing — mixed paper', lines: [{ description: 'Processing — mixed paper', amount: 14200, gl: 'Hauling' }], submittedDaysAgo: 1 },
+      { slug: 'grainger-882', vendor: 'grainger', invoice: 'GRA-882', status: 'scheduled', issue: -7, due: 8, gl: 'Maintenance', memo: 'Baler parts & belts', lines: [{ description: 'Baler parts & belts', amount: 3600, gl: 'Maintenance' }], payStatus: 'scheduled', paidOn: 8, payMethod: 'check', payRef: 'CHK-882', approvedBy: 'approver' },
+      { slug: 'komatsu-77', vendor: 'komatsu', invoice: 'KMF-77', status: 'approved', issue: -45, due: -8, gl: 'Equipment', memo: 'Baler lease — overdue', lines: [{ description: 'Two-ram baler lease', amount: 22600, gl: 'Equipment' }], approvedBy: 'controller' },
+      { slug: 'grainger-901', vendor: 'grainger', invoice: 'GRA-901', status: 'draft', issue: -1, due: 13, gl: 'Maintenance', memo: 'Lubricants & filters', lines: [{ description: 'Lubricants & filters', amount: 540, gl: 'Maintenance' }] },
+    ],
+    activity: [
+      { actor: 'controller', type: 'approved', text: 'approved', target: 'Komatsu Finance', amount: c(22600), daysAgo: -2 },
+      { actor: 'clerk', type: 'scheduled', text: 'scheduled', target: 'Grainger', amount: c(3600), daysAgo: -1 },
+    ],
+  },
+];
+
+async function seedOrg(o: OrgSeed) {
+  await db.insert(s.organizations).values({ id: o.id, name: o.name, sub: o.sub, mono: o.mono });
+  const uid: Record<Role, string> = { clerk: `${o.id}-clerk`, approver: `${o.id}-approver`, controller: `${o.id}-controller` };
+  await db.insert(s.users).values([
+    { id: uid.clerk, orgId: o.id, name: o.people.clerk[0], email: `clerk@${o.id}.example`, role: 'clerk', mono: o.people.clerk[1], description: 'Capture bills, schedule payments' },
+    { id: uid.approver, orgId: o.id, name: o.people.approver[0], email: `approver@${o.id}.example`, role: 'approver', mono: o.people.approver[1], description: 'Review and sign off on bills' },
+    { id: uid.controller, orgId: o.id, name: o.people.controller[0], email: `controller@${o.id}.example`, role: 'controller', mono: o.people.controller[1], description: 'Full ledger + payment release' },
+  ]);
+  const glByName = new Map(o.gls.map((g, i) => [g.name, `${o.id}-gl-${i}`]));
+  await db.insert(s.glAccounts).values(
+    o.gls.map((g, i) => ({ id: `${o.id}-gl-${i}`, orgId: o.id, code: g.code, name: g.name, type: g.type ?? 'expense' })),
+  );
+  const vid = (slug: string) => `${o.id}-${slug}`;
+  await db.insert(s.vendors).values(
+    o.vendors.map((v) => ({
+      id: vid(v.slug), orgId: o.id, name: v.name, mono: v.mono, terms: v.terms ?? 'net_30', defaultMethod: v.method ?? 'ach',
+      bankLast4: v.last4, defaultGl: v.gl, cadence: 'monthly', email: `ar@${v.slug}.example`, phone: '(800) 555-0000',
+      address: '—', taxId: '00-0000000', status: 'active',
+    })),
+  );
+  for (const b of o.bills) {
+    const subtotal = b.lines.reduce((sum, l) => sum + c(l.amount), 0);
+    await db.insert(s.bills).values({
+      id: vid(b.slug), orgId: o.id, vendorId: vid(b.vendor), invoiceNumber: b.invoice, status: b.status,
+      reviewStatus: 'clean', ocrStatus: 'done',
+      issueDate: day(b.issue), dueDate: b.due == null ? null : day(b.due),
+      subtotalCents: subtotal, taxCents: 0, totalCents: subtotal,
+      memo: b.memo, glAccount: b.gl, attachmentUrl: `/invoices/${b.invoice}.pdf`,
+      createdBy: uid.clerk,
+      submittedAt: b.submittedDaysAgo != null ? day(-b.submittedDaysAgo) : null,
+      approvedBy: b.approvedBy ? uid[b.approvedBy] : null,
+      approvedAt: b.approvedBy ? day(b.issue + 1) : null,
+      scheduledPayDate: b.payStatus === 'scheduled' && b.paidOn != null ? day(b.paidOn) : null,
+      paidAt: b.payStatus === 'paid' && b.paidOn != null ? day(b.paidOn) : null,
+      createdAt: day(b.issue),
+    });
+    await db.insert(s.billLineItems).values(
+      b.lines.map((l, i) => ({
+        id: nid('line'), billId: vid(b.slug), description: l.description, quantity: l.qty ?? null,
+        unitPriceCents: l.unit != null ? c(l.unit) : null, amountCents: c(l.amount),
+        glAccountId: glByName.get(l.gl) ?? null, glLabel: l.gl, kind: 'expense' as const, sortOrder: i,
+      })),
+    );
+    if (b.submittedDaysAgo != null) {
+      await db.insert(s.approvalEvents).values({ id: nid('appr'), billId: vid(b.slug), actorId: uid.clerk, action: 'submit', createdAt: day(-b.submittedDaysAgo) });
+    }
+    if (b.approvedBy) {
+      await db.insert(s.approvalEvents).values({ id: nid('appr'), billId: vid(b.slug), actorId: uid[b.approvedBy], action: 'approve', note: null, createdAt: day(b.issue + 1) });
+    }
+    if (b.payStatus && b.paidOn != null) {
+      await db.insert(s.payments).values({ id: nid('pay'), billId: vid(b.slug), amountCents: subtotal, method: b.payMethod ?? 'ach', payDate: day(b.paidOn), status: b.payStatus, referenceNumber: b.payRef ?? null, createdBy: uid.clerk });
+    }
+  }
+  if (o.activity.length) {
+    await db.insert(s.activityLog).values(
+      o.activity.map((a) => ({ id: nid('act'), orgId: o.id, billId: null, actorId: uid[a.actor], type: a.type, text: a.text, target: a.target, amountCents: a.amount, meta: a.meta ?? null, quote: null, createdAt: day(a.daysAgo) })),
+    );
+  }
+}
+
 /* ----------------------------- run ----------------------------- */
 let seq = 0;
 const nid = (p: string) => `${p}-${(++seq).toString().padStart(4, '0')}`;
@@ -297,6 +435,9 @@ async function main() {
       lines: [{ glLabel: 'Fuel', percentBps: 9300 }, { glLabel: 'Office', percentBps: 700 }], createdBy: 'user-dana',
     },
   ]);
+
+  console.info('Seeding secondary entities (Transfer Stations, Cascade Recycling)…');
+  for (const org of SECONDARY_ORGS) await seedOrg(org);
 
   console.info('✓ Seed complete.');
 }

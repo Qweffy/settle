@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { vendors, paymentTerms, paymentMethod } from '@/db/schema';
-import { DEMO_ORG } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { parseOrThrow, vendorInputSchema, idSchema } from '@/lib/validation';
 
 type PaymentTermsValue = (typeof paymentTerms.enumValues)[number];
@@ -47,10 +47,11 @@ type VendorInput = {
 
 export async function createVendor(input: VendorInput): Promise<string> {
   parseOrThrow(vendorInputSchema, input);
+  const org = await getActiveOrg();
   const vendorId = rid('v');
   await db.insert(vendors).values({
     id: vendorId,
-    orgId: DEMO_ORG,
+    orgId: org,
     name: input.name.trim(),
     mono: deriveMono(input.name),
     email: orNull(input.email),

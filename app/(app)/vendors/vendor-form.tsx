@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { createVendor, updateVendor } from '@/lib/actions/vendors';
 import type { VendorFormInitial } from '@/lib/queries/vendors-list';
 import './vendor-form.css';
@@ -23,6 +24,7 @@ const METHOD_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export function VendorForm({ initial, editId }: { initial?: VendorFormInitial; editId?: string }) {
+  const entity = useActiveEntity();
   const router = useRouter();
 
   const [name, setName] = useState(initial?.name ?? '');
@@ -65,7 +67,7 @@ export function VendorForm({ initial, editId }: { initial?: VendorFormInitial; e
           <Link href={backHref} className="nb-back" aria-label="Back"><Icon name="chevron-left" size={16} /></Link>
           <div className="nb-titles">
             <h1>{isEdit ? 'Edit vendor' : 'New vendor'}</h1>
-            <div className="nb-sub">{isEdit ? 'Update this vendor · Summit Waste Services' : 'Add a vendor to pay bills against · Summit Waste Services'}</div>
+            <div className="nb-sub">{isEdit ? `Update this vendor · ${entity.name}` : `Add a vendor to pay bills against · ${entity.name}`}</div>
           </div>
         </div>
 

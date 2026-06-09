@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { glAccounts, glType } from '@/db/schema';
-import { DEMO_ORG } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { parseOrThrow, glAccountInputSchema, idSchema } from '@/lib/validation';
 
 type GlTypeValue = (typeof glType.enumValues)[number];
@@ -26,10 +26,11 @@ export type GlAccountInput = {
 
 export async function createGlAccount(input: GlAccountInput): Promise<string> {
   parseOrThrow(glAccountInputSchema, input);
+  const org = await getActiveOrg();
   const id = rid('gl');
   await db.insert(glAccounts).values({
     id,
-    orgId: DEMO_ORG,
+    orgId: org,
     code: input.code.trim(),
     name: input.name.trim(),
     type: input.type as GlTypeValue,

@@ -1,7 +1,8 @@
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { recurringBillTemplates } from '@/db/schema';
-import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { DEMO_NOW } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { formatShortDate } from '@/lib/dates';
 
 const DAY = 86_400_000;
@@ -43,8 +44,9 @@ function dueState(nextRun: Date, now: Date): { tone: RecurringDueTone; text: str
 // Recurring bill schedules for the demo org, with their vendor and a derived
 // due badge, ordered by which fires next.
 export async function getRecurringTemplates(): Promise<RecurringRow[]> {
+  const org = await getActiveOrg();
   const rows = await db.query.recurringBillTemplates.findMany({
-    where: eq(recurringBillTemplates.orgId, DEMO_ORG),
+    where: eq(recurringBillTemplates.orgId, org),
     orderBy: asc(recurringBillTemplates.nextRunDate),
     with: { vendor: { columns: { name: true, mono: true } } },
   });

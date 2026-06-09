@@ -1,7 +1,7 @@
 import { db } from '@/db';
 import { bills } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { DEMO_ORG } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { formatShortDate } from '@/lib/dates';
 import type {
   ModalBill,
@@ -39,8 +39,9 @@ export type PaymentsData = {
 };
 
 export async function getPaymentsData(): Promise<PaymentsData> {
+  const org = await getActiveOrg();
   const billRows = await db.query.bills.findMany({
-    where: eq(bills.orgId, DEMO_ORG),
+    where: eq(bills.orgId, org),
     with: { vendor: true, payments: true },
   });
 

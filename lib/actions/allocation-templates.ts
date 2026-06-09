@@ -5,8 +5,7 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { allocationTemplates, type AllocationTemplateLine } from '@/db/schema';
-import { DEMO_ORG } from '@/lib/demo';
-import { getCurrentUserId } from './session';
+import { getCurrentUserId, getActiveOrg } from './session';
 import { parseOrThrow, parseOrResult, idSchema, allocationTemplateSchema } from '@/lib/validation';
 import { runAction, type ActionResult } from '@/lib/result';
 
@@ -20,10 +19,11 @@ export async function createAllocationTemplate(
   if (!parsed.ok) return parsed;
   return runAction("Couldn't save this allocation template.", async () => {
     const actor = await getCurrentUserId();
+    const org = await getActiveOrg();
     const id = `alloc-${randomUUID()}`;
     await db.insert(allocationTemplates).values({
       id,
-      orgId: DEMO_ORG,
+      orgId: org,
       vendorId: vendorId ?? null,
       name: name.trim(),
       lines,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt, fmtK } from '@/lib/format';
 import { BUCKETS } from '@/lib/data/aging';
 import type { AgingData } from '@/lib/queries/aging';
@@ -150,6 +151,7 @@ function Matrix({ data }: { data: AgingData }) {
 }
 
 export function AgingView({ data }: { data: AgingData }) {
+  const entity = useActiveEntity();
   const [asOf, setAsOf] = useState('Today');
   return (
     <div className="screen-aging">
@@ -157,7 +159,7 @@ export function AgingView({ data }: { data: AgingData }) {
         <div className="page-head">
           <div>
             <h1>AP Aging</h1>
-            <div className="ph-sub">Outstanding payables by age · Summit Waste Services</div>
+            <div className="ph-sub">Outstanding payables by age · {entity.name}</div>
           </div>
           <div className="ph-actions">
             <div className="seg">

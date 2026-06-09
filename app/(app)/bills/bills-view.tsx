@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt } from '@/lib/format';
 import { bulkAdvance, importBills, type BulkAction, type ImportRow } from '@/lib/actions/bills';
 import { createSavedView, deleteSavedView } from '@/lib/actions/views';
@@ -105,6 +106,7 @@ function StatusPill({ status }: { status: StatusKey }) {
 type SortKey = Sort['key'];
 
 export function BillsView({ data }: { data: BillsData }) {
+  const entity = useActiveEntity();
   const router = useRouter();
   const { tabs: TABS, rows: ROWS, vendorNames, views } = data;
   const openCount = ROWS.filter((r) => !['paid', 'failed'].includes(r.status)).length;
@@ -404,7 +406,7 @@ export function BillsView({ data }: { data: BillsData }) {
       <div className="page-head">
         <div>
           <h1>Bills</h1>
-          <div className="ph-sub">{openCount} open bills · Summit Waste Services · synced 2 min ago</div>
+          <div className="ph-sub">{openCount} open bills · {entity.name} · synced 2 min ago</div>
         </div>
         <div className="ph-actions">
           <input

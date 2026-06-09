@@ -1,9 +1,9 @@
 import { db } from '@/db';
 import { bills, users, activityLog } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
-import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { DEMO_NOW } from '@/lib/demo';
 import { requiredApproval, roleSatisfies } from '@/lib/approval-rules';
-import { getCurrentUserId } from '@/lib/actions/session';
+import { getCurrentUserId, getActiveOrg } from '@/lib/actions/session';
 import type {
   Bill,
   Line,
@@ -104,7 +104,8 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
   if (!bill) return null;
 
   // Org users → drive @-mentions in the composer + actor lookups.
-  const userRows = await db.select().from(users).where(eq(users.orgId, DEMO_ORG));
+  const org = await getActiveOrg();
+  const userRows = await db.select().from(users).where(eq(users.orgId, org));
   const userById = new Map(userRows.map((u) => [u.id, u]));
 
   // Manual edits aren't synthetic timeline nodes — pull them from the audit log.

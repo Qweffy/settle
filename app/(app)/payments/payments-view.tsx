@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt } from '@/lib/format';
 import { schedulePayment, markPaid } from '@/lib/actions/bills';
 import {
@@ -233,6 +234,7 @@ function ScheduleModal({
 }
 
 export function PaymentsView({ data }: { data: PaymentsData }) {
+  const entity = useActiveEntity();
   const [tab, setTab] = useState<Tab>('scheduled');
   const [modal, setModal] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -271,7 +273,7 @@ export function PaymentsView({ data }: { data: PaymentsData }) {
         <div className="page-head">
           <div>
             <h1>Payments</h1>
-            <div className="ph-sub">Money out · Summit Waste Services · Operating ••4821</div>
+            <div className="ph-sub">Money out · {entity.name} · Operating ••4821</div>
           </div>
           <div className="ph-actions">
             <button className="btn btn-primary" onClick={() => setModal(true)}><Icon name="calendar-plus" size={15} />Schedule payment</button>

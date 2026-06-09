@@ -23,9 +23,9 @@ export const NAV: NavItem[] = [
 export type Entity = { id: string; name: string; sub: string; mono: string };
 
 export const ENTITIES: Entity[] = [
-  { id: 'sws', name: 'Summit Waste Services', sub: 'Operating · ••4821', mono: 'SW' },
-  { id: 'sts', name: 'Summit Transfer Stations', sub: 'Operating · ••6307', mono: 'ST' },
-  { id: 'crc', name: 'Cascade Recycling Co.', sub: 'Operating · ••1192', mono: 'CR' },
+  { id: 'org-sws', name: 'Summit Waste Services', sub: 'Operating · ••4821', mono: 'SW' },
+  { id: 'org-sts', name: 'Summit Transfer Stations', sub: 'Operating · ••6307', mono: 'ST' },
+  { id: 'org-crc', name: 'Cascade Recycling Co.', sub: 'Operating · ••1192', mono: 'CR' },
 ];
 
 export type Role = { id: string; role: string; name: string; mono: string; desc: string; userId: string };

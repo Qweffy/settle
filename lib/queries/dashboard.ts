@@ -1,7 +1,8 @@
 import { db } from '@/db';
 import { bills, vendors, users, activityLog } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { DEMO_NOW } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { timeAgo, formatShortDate } from '@/lib/dates';
 import type {
   Score,
@@ -26,18 +27,19 @@ export type DashboardData = {
 
 export async function getDashboardData(): Promise<DashboardData> {
   const now = DEMO_NOW;
+  const org = await getActiveOrg();
 
   const billRows = await db.query.bills.findMany({
-    where: eq(bills.orgId, DEMO_ORG),
+    where: eq(bills.orgId, org),
     with: { vendor: true, flags: true },
   });
   const vendorRows = await db.query.vendors.findMany({
-    where: eq(vendors.orgId, DEMO_ORG),
+    where: eq(vendors.orgId, org),
     with: { bills: true },
   });
-  const userRows = await db.select().from(users).where(eq(users.orgId, DEMO_ORG));
+  const userRows = await db.select().from(users).where(eq(users.orgId, org));
   const acts = await db.query.activityLog.findMany({
-    where: eq(activityLog.orgId, DEMO_ORG),
+    where: eq(activityLog.orgId, org),
     orderBy: desc(activityLog.createdAt),
     limit: 8,
   });

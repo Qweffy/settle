@@ -1,7 +1,8 @@
 import { db } from '@/db';
 import { bills, vendors, savedViews } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { DEMO_NOW } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { dueLabel, formatShortDate } from '@/lib/dates';
 import { deriveDisplayStatus, type BillLifecycle } from '@/lib/status';
 import type { BillRow, Tab, DueTone, SavedView } from '@/lib/data/bills';
@@ -43,14 +44,15 @@ function dueHintFor(
 
 export async function getBillsData(): Promise<BillsData> {
   const now = DEMO_NOW;
+  const org = await getActiveOrg();
 
   const [billRows, orgVendors, viewRows] = await Promise.all([
     db.query.bills.findMany({
-      where: eq(bills.orgId, DEMO_ORG),
+      where: eq(bills.orgId, org),
       with: { vendor: true, flags: true, payments: true },
     }),
-    db.select({ name: vendors.name }).from(vendors).where(eq(vendors.orgId, DEMO_ORG)),
-    db.select().from(savedViews).where(eq(savedViews.orgId, DEMO_ORG)).orderBy(desc(savedViews.createdAt)),
+    db.select({ name: vendors.name }).from(vendors).where(eq(vendors.orgId, org)),
+    db.select().from(savedViews).where(eq(savedViews.orgId, org)).orderBy(desc(savedViews.createdAt)),
   ]);
 
   const rows: BillRow[] = billRows.map((b) => {

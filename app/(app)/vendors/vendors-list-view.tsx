@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt } from '@/lib/format';
 import type { VendorListItem } from '@/lib/queries/vendors-list';
 import './vendors-list.css';
@@ -24,6 +25,7 @@ function StatusPill({ status }: { status: string }) {
 }
 
 export function VendorsListView({ data }: { data: VendorListItem[] }) {
+  const entity = useActiveEntity();
   const router = useRouter();
   const [query, setQuery] = useState('');
 
@@ -40,7 +42,7 @@ export function VendorsListView({ data }: { data: VendorListItem[] }) {
       <div className="page-head">
         <div>
           <h1>Vendors</h1>
-          <div className="ph-sub">{data.length} vendor{data.length !== 1 ? 's' : ''} · Summit Waste Services</div>
+          <div className="ph-sub">{data.length} vendor{data.length !== 1 ? 's' : ''} · {entity.name}</div>
         </div>
         <div className="ph-actions">
           <button className="btn btn-primary" onClick={() => router.push('/vendors/new')}>

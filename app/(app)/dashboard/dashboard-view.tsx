@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt } from '@/lib/format';
 import {
   SEV,
@@ -198,6 +199,7 @@ function SyncBanner() {
 }
 
 export function DashboardView({ data }: { data: DashboardData }) {
+  const entity = useActiveEntity();
   const [range, setRange] = useState('This month');
   return (
     <div className="screen-dashboard">
@@ -205,7 +207,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <div className="page-head">
           <div>
             <h1>Dashboard</h1>
-            <div className="ph-sub">Tuesday, June 3 · Summit Waste Services · last synced 2 min ago</div>
+            <div className="ph-sub">Tuesday, June 3 · {entity.name} · last synced 2 min ago</div>
           </div>
           <div className="ph-actions">
             <div className="seg">

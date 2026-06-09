@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { organizations, glAccounts } from '@/db/schema';
-import { DEMO_ORG } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { getRecurringTemplates, type RecurringRow } from '@/lib/queries/recurring';
 
 export type SettingsGlAccount = {
@@ -19,14 +19,15 @@ export type SettingsData = {
 
 // Org profile + chart of accounts for the /settings screen, scoped to the demo org.
 export async function getSettingsData(): Promise<SettingsData> {
+  const activeOrg = await getActiveOrg();
   const org = await db.query.organizations.findFirst({
-    where: eq(organizations.id, DEMO_ORG),
+    where: eq(organizations.id, activeOrg),
   });
 
   const glRows = await db
     .select({ id: glAccounts.id, code: glAccounts.code, name: glAccounts.name, type: glAccounts.type })
     .from(glAccounts)
-    .where(eq(glAccounts.orgId, DEMO_ORG))
+    .where(eq(glAccounts.orgId, activeOrg))
     .orderBy(asc(glAccounts.code));
 
   const recurring = await getRecurringTemplates();

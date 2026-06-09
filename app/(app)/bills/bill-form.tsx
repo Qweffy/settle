@@ -4,6 +4,7 @@ import React, { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt } from '@/lib/format';
 import { createBill, updateBill, checkDuplicate } from '@/lib/actions/bills';
 import { createAllocationTemplate } from '@/lib/actions/allocation-templates';
@@ -22,6 +23,7 @@ export function BillForm({
   initial?: BillFormInitial;
   editId?: string;
 }) {
+  const entity = useActiveEntity();
   const router = useRouter();
   const firstGl = data.glAccounts[0]?.name ?? '';
   const seq = useRef(initial?.lines.length ?? 1);
@@ -173,7 +175,7 @@ export function BillForm({
           <Link href={backHref} className="nb-back" aria-label="Back"><Icon name="chevron-left" size={16} /></Link>
           <div className="nb-titles">
             <h1>{isEdit ? 'Edit bill' : 'New bill'}</h1>
-            <div className="nb-sub">{isEdit ? 'Update this bill · Summit Waste Services' : 'Enter a bill and route it for approval · Summit Waste Services'}</div>
+            <div className="nb-sub">{isEdit ? `Update this bill · ${entity.name}` : `Enter a bill and route it for approval · ${entity.name}`}</div>
           </div>
           {!isEdit && (
             <Link href="/capture" className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}>

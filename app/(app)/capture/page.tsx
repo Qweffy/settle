@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icon';
+import { useActiveEntity } from '@/components/entity-context';
 import { fmt } from '@/lib/format';
 import { runCapture, simulateInboundEmail } from '@/lib/actions/ocr';
 import { createBillFromCapture } from '@/lib/actions/bills';
@@ -449,6 +450,7 @@ function StageDraft({
 }
 
 export default function CapturePage() {
+  const entity = useActiveEntity();
   const router = useRouter();
   const [result, setResult] = useState<OcrResult | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -513,7 +515,7 @@ export default function CapturePage() {
           <span className="fh-logo"><Logo /></span>
           <div className="fh-titles">
             <h1>Capture a bill</h1>
-            <div className="fh-sub">Upload → AI review → Draft · Summit Waste Services</div>
+            <div className="fh-sub">Upload → AI review → Draft · {entity.name}</div>
           </div>
           <span className="fh-spacer" />
           <div className="stepper">

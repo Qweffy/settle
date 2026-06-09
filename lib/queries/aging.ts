@@ -1,7 +1,8 @@
 import { db } from '@/db';
 import { bills } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { DEMO_NOW } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { daysBetween } from '@/lib/dates';
 import type { AgingRow } from '@/lib/data/aging';
 
@@ -27,8 +28,9 @@ export type AgingData = {
 };
 
 export async function getAgingData(): Promise<AgingData> {
+  const org = await getActiveOrg();
   const billRows = await db.query.bills.findMany({
-    where: eq(bills.orgId, DEMO_ORG),
+    where: eq(bills.orgId, org),
     with: { vendor: true },
   });
 

@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { DEMO_ORG } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 
 const TERMS_LABEL: Record<string, string> = {
   due_on_receipt: 'Due on receipt',
@@ -33,12 +33,13 @@ export type VendorListItem = {
 
 // All vendors for the demo org with rolled-up bill metrics, for the /vendors list.
 export async function getVendorsList(): Promise<VendorListItem[]> {
+  const org = await getActiveOrg();
   const rows = await db.query.vendors.findMany({
     with: { bills: { with: { flags: true } } },
   });
 
   return rows
-    .filter((row) => row.orgId === DEMO_ORG)
+    .filter((row) => row.orgId === org)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((row) => {
       const openBills = row.bills.filter((b) => OPEN.has(b.status));

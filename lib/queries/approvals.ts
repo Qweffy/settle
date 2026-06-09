@@ -1,7 +1,8 @@
 import { db } from '@/db';
 import { bills, users } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { DEMO_NOW, DEMO_ORG } from '@/lib/demo';
+import { DEMO_NOW } from '@/lib/demo';
+import { getActiveOrg } from '@/lib/actions/session';
 import { dueLabel, formatShortDate, timeAgo } from '@/lib/dates';
 import type {
   ApprovalBill,
@@ -57,15 +58,16 @@ function displaySev(severity: 'high' | 'med' | 'low'): ApprovalSev {
 
 export async function getApprovalsData(): Promise<ApprovalsData> {
   const now = DEMO_NOW;
+  const org = await getActiveOrg();
 
   // The approver whose queue this is (controller signs off as the second approver).
-  const userRows = await db.select().from(users).where(eq(users.orgId, DEMO_ORG));
+  const userRows = await db.select().from(users).where(eq(users.orgId, org));
   const approver = userRows.find((u) => u.role === 'approver');
   const controller = userRows.find((u) => u.role === 'controller');
   const usersById = new Map(userRows.map((u) => [u.id, u]));
 
   const billRows = await db.query.bills.findMany({
-    where: and(eq(bills.orgId, DEMO_ORG), eq(bills.status, 'pending_approval')),
+    where: and(eq(bills.orgId, org), eq(bills.status, 'pending_approval')),
     with: {
       vendor: true,
       lineItems: { orderBy: (li, { asc }) => asc(li.sortOrder) },
