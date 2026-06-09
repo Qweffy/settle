@@ -303,6 +303,7 @@ function StageDraft({
   flags,
   usedAI,
   onSave,
+  onDiscard,
   saving,
   canSave,
 }: {
@@ -311,7 +312,8 @@ function StageDraft({
   totals: Totals;
   flags: ReviewFlag[];
   usedAI: boolean;
-  onSave: () => void;
+  onSave: (resolutions: Record<string, Resolution>) => void;
+  onDiscard: () => void;
   saving: boolean;
   canSave: boolean;
 }) {
@@ -382,12 +384,14 @@ function StageDraft({
           </div>
 
           <div className="df-actions">
-            {highRisk > 0
+            {!canSave
+              ? <span className="df-hint"><Icon name="upload-cloud" size={13} />Process or upload an invoice to save</span>
+              : highRisk > 0
               ? <span className="df-hint"><Icon name="shield-alert" size={13} style={{ color: 'var(--failed-ink)' }} />Resolve {highRisk} high-risk flag{highRisk === 1 ? '' : 's'} before approval</span>
               : <span className="df-hint"><Icon name="check" size={13} style={{ color: 'var(--paid-ink)' }} />No high-risk flags open</span>}
             <span className="spacer" />
-            <button className="btn btn-ghost" disabled={saving}><Icon name="trash-2" size={15} />Discard</button>
-            <button className="btn btn-primary" onClick={onSave} disabled={!canSave || saving} title={canSave ? undefined : 'Process the invoice first'}>
+            <button className="btn btn-ghost" onClick={onDiscard} disabled={!canSave || saving}><Icon name="trash-2" size={15} />Discard</button>
+            <button className="btn btn-primary" onClick={() => onSave(resolved)} disabled={!canSave || saving} title={canSave ? undefined : 'Process or upload an invoice first'}>
               <Icon name={saving ? 'loader' : 'check'} size={15} className={saving ? 'spin' : ''} />
               {saving ? 'Saving…' : 'Save as draft for approval'}
             </button>
@@ -465,12 +469,12 @@ export default function CapturePage() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = (resolutions: Record<string, Resolution> = {}) => {
     if (!result) return;
     setError(null);
     startSave(async () => {
       try {
-        const newId = await createBillFromCapture(result.extraction, result.flags, 'v-landfill');
+        const newId = await createBillFromCapture(result.extraction, result.flags, 'v-landfill', resolutions);
         router.push(`/bills/${newId}`);
       } catch (e) {
         console.error('[capture] save failed:', e);
@@ -542,7 +546,7 @@ export default function CapturePage() {
         </div>
         {/* key remounts the draft so its local state (GL edits, resolved flags)
             resets to the freshly mapped data when a new result arrives. */}
-        <StageDraft key={result ? draft.inv : 'mock'} draft={draft} lineItems={lineItems} totals={totals} flags={reviewFlags} usedAI={usedAI} onSave={handleSave} saving={isSaving} canSave={!!result} />
+        <StageDraft key={result ? draft.inv : 'mock'} draft={draft} lineItems={lineItems} totals={totals} flags={reviewFlags} usedAI={usedAI} onSave={handleSave} onDiscard={() => { setResult(null); setError(null); }} saving={isSaving} canSave={!!result} />
       </div>
     </div>
   );

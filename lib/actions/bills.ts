@@ -215,6 +215,7 @@ export async function createBillFromCapture(
   extraction: OcrExtraction,
   flags: OcrFlag[],
   vendorId: string,
+  resolutions: Record<string, 'accept' | 'dismiss' | 'verify'> = {},
 ): Promise<string> {
   parseOrThrow(idSchema, vendorId);
   const [vendor] = await db.select().from(vendors).where(eq(vendors.id, vendorId));
@@ -222,6 +223,15 @@ export async function createBillFromCapture(
   const actor = await getCurrentUserId();
   const billId = rid('b');
   const now = new Date();
+
+  // Capture-time triage carries onto the bill: accept → accepted, dismiss →
+  // dismissed, verify (or untouched) stays open for the cockpit to resolve.
+  // Flags map to ReviewFlag ids `f1..fN` by their order in `flags`.
+  const flagStatusOf = (i: number): 'open' | 'accepted' | 'dismissed' => {
+    const r = resolutions[`f${i + 1}`];
+    return r === 'accept' ? 'accepted' : r === 'dismiss' ? 'dismissed' : 'open';
+  };
+  const openFlagCount = flags.filter((_, i) => flagStatusOf(i) === 'open').length;
 
   const toCents = (n: number) => Math.round(n * 100);
   const parseDate = (s: string): Date | null => {
@@ -235,7 +245,7 @@ export async function createBillFromCapture(
     vendorId: vendor.id,
     invoiceNumber: extraction.invoiceNumber,
     status: 'pending_approval',
-    reviewStatus: flags.length > 0 ? 'flagged' : 'clean',
+    reviewStatus: flags.length === 0 ? 'clean' : openFlagCount > 0 ? 'flagged' : 'reviewed',
     ocrStatus: 'done',
     source: 'ocr',
     issueDate: parseDate(extraction.issueDate),
@@ -267,7 +277,7 @@ export async function createBillFromCapture(
 
   if (flags.length > 0) {
     await db.insert(billFlags).values(
-      flags.map((f) => ({
+      flags.map((f, i) => ({
         id: rid('flag'),
         billId,
         type: f.type,
@@ -275,7 +285,7 @@ export async function createBillFromCapture(
         title: f.title,
         message: f.message,
         lineRef: f.lineRef ?? null,
-        status: 'open' as const,
+        status: flagStatusOf(i),
       })),
     );
   }

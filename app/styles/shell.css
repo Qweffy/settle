@@ -68,8 +68,12 @@
 .tb-divider { width: 1px; height: 26px; background: var(--border-1); flex-shrink: 0; }
 
 /* ---------- buttons ---------- */
-.btn { font: 600 13px var(--font-ui); padding: 8px 13px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; line-height: 1; white-space: nowrap; transition: background .12s, transform .04s; flex-shrink: 0; text-decoration: none; }
+.btn { font: 600 13px var(--font-ui); padding: 8px 13px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; line-height: 1; white-space: nowrap; transition: background .12s, transform .04s, opacity .12s; flex-shrink: 0; text-decoration: none; }
 .btn:active { transform: translateY(0.5px); }
+/* Every .btn that's disabled must read as disabled — there was no shared rule,
+   so disabled primary actions (Save, Approve, Create) still looked clickable. */
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }
 .btn .icon { width: 15px; height: 15px; }
 .btn-primary { background: var(--primary); color: var(--fg-on-accent); }
 .btn-primary:hover { background: var(--primary-hover); }
