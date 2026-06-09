@@ -14,11 +14,23 @@ import {
   type Sort,
   type SavedView,
   type SavedViewConfig,
+  type BillRow,
 } from '@/lib/data/bills';
 import type { BillsData } from '@/lib/queries/bills';
 import { Check, type CheckState } from '@/components/check';
 import { Toast, type ToastData } from '@/components/toast';
 import './bills.css';
+
+// Chip-filter helpers: map a bill row to its filterable value per category.
+const AMOUNT_BUCKET = (n: number): string => (n >= 50000 ? 'Over $50k' : n >= 10000 ? '$10k–$50k' : 'Under $10k');
+const DUE_FILTER_LABEL: Record<string, string> = { overdue: 'Overdue', soon: 'Due soon', none: 'No due date' };
+const rowFilterVal = (r: BillRow, cat: string): string =>
+  cat === 'status' ? r.status
+    : cat === 'vendor' ? r.vendor
+    : cat === 'gl' ? r.gl
+    : cat === 'due' ? r.dueTone
+    : cat === 'amount' ? AMOUNT_BUCKET(r.amount)
+    : '';
 
 // CSV header → ImportRow field. A few common aliases are accepted per column.
 const FIELD_BY_HEADER: Record<string, keyof ImportRow> = {
@@ -102,7 +114,7 @@ export function BillsView({ data }: { data: BillsData }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>({ key: 'due', dir: 'asc' });
   const [sel, setSel] = useState<Set<string>>(() => new Set());
-  const [activeFilters, setActiveFilters] = useState<Set<string>>(() => new Set());
+  const [filterValues, setFilterValues] = useState<Record<string, Set<string>>>(() => ({}));
   const [menu, setMenu] = useState<string | null>(null);
   const [visCols, setVisCols] = useState<Set<string>>(() => new Set(COLS.map((c) => c.id)));
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -120,9 +132,26 @@ export function BillsView({ data }: { data: BillsData }) {
     setTimeout(() => setToast(null), ms);
   };
 
-  // filter rows by tab + query
+  // distinct filter options per category, drawn from all rows
+  const filterOptions = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const f of FILTERS) {
+      const seen = new Set<string>();
+      for (const row of ROWS) seen.add(rowFilterVal(row, f.id));
+      out[f.id] = [...seen].filter(Boolean);
+    }
+    return out;
+  }, [ROWS]);
+  const filterOptLabel = (cat: string, v: string): string =>
+    cat === 'status' ? STATUS[v as StatusKey]?.label ?? v : cat === 'due' ? DUE_FILTER_LABEL[v] ?? v : v;
+
+  // filter rows by tab + active chip filters + query
   const rows = useMemo(() => {
     let r = ROWS.filter((row) => row.tabs.includes(tab));
+    for (const cat of Object.keys(filterValues)) {
+      const set = filterValues[cat];
+      if (set && set.size) r = r.filter((row) => set.has(rowFilterVal(row, cat)));
+    }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       r = r.filter(
@@ -145,7 +174,7 @@ export function BillsView({ data }: { data: BillsData }) {
       return 0;
     });
     return r;
-  }, [ROWS, tab, query, sort]);
+  }, [ROWS, tab, query, sort, filterValues]);
 
   // selection only counts visible rows
   const visIds = rows.map((r) => r.id);
@@ -182,12 +211,21 @@ export function BillsView({ data }: { data: BillsData }) {
       </span>
     ) : null;
 
-  const toggleFilter = (id: string) =>
-    setActiveFilters((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
+  const toggleFilterValue = (cat: string, value: string) =>
+    setFilterValues((fv) => {
+      const set = new Set(fv[cat] ?? []);
+      if (set.has(value)) set.delete(value);
+      else set.add(value);
+      const next = { ...fv };
+      if (set.size) next[cat] = set;
+      else delete next[cat];
+      return next;
+    });
+  const clearFilter = (cat: string) =>
+    setFilterValues((fv) => {
+      const next = { ...fv };
+      delete next[cat];
+      return next;
     });
   const toggleCol = (id: string) =>
     setVisCols((s) => {
@@ -315,13 +353,22 @@ export function BillsView({ data }: { data: BillsData }) {
   };
 
   const currentConfig = (): SavedViewConfig => ({
-    tab, query, sort, filters: [...activeFilters], cols: [...visCols], density,
+    tab, query, sort,
+    filters: Object.entries(filterValues).flatMap(([cat, set]) => [...set].map((v) => `${cat}:${v}`)),
+    cols: [...visCols], density,
   });
   const applyView = (v: SavedView) => {
     setTab(v.config.tab);
     setQuery(v.config.query);
     setSort(v.config.sort);
-    setActiveFilters(new Set(v.config.filters));
+    const fv: Record<string, Set<string>> = {};
+    for (const entry of v.config.filters) {
+      const i = entry.indexOf(':');
+      if (i < 0) continue;
+      const cat = entry.slice(0, i);
+      (fv[cat] ??= new Set<string>()).add(entry.slice(i + 1));
+    }
+    setFilterValues(fv);
     setVisCols(new Set(v.config.cols));
     setDensity(v.config.density);
     setMenu(null);
@@ -397,16 +444,43 @@ export function BillsView({ data }: { data: BillsData }) {
             placeholder="Search vendor, invoice #, GL…"
           />
         </div>
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            className={'chip' + (activeFilters.has(f.id) ? ' active' : '')}
-            onClick={() => toggleFilter(f.id)}
-          >
-            {f.label}
-            <Icon name="chevron-down" size={13} />
-          </button>
-        ))}
+        {FILTERS.map((f) => {
+          const sel = filterValues[f.id];
+          const opts = filterOptions[f.id] ?? [];
+          return (
+            <div style={{ position: 'relative' }} key={f.id}>
+              <button
+                className={'chip' + (sel?.size ? ' active' : '')}
+                onClick={() => setMenu(menu === `filter:${f.id}` ? null : `filter:${f.id}`)}
+              >
+                {f.label}
+                {sel?.size ? <span className="ctrl-badge">{sel.size}</span> : null}
+                <Icon name="chevron-down" size={13} />
+              </button>
+              {menu === `filter:${f.id}` && (
+                <div className="menu" style={{ top: 'calc(100% + 6px)', left: 0, minWidth: 200 }}>
+                  <div className="menu-label">Filter by {f.label.toLowerCase()}</div>
+                  {opts.length === 0 && <div className="menu-empty">No values</div>}
+                  {opts.map((v) => (
+                    <div key={v} className="menu-item" onClick={() => toggleFilterValue(f.id, v)}>
+                      <Icon name={sel?.has(v) ? 'check-square' : 'square'} size={14} />
+                      <span>{filterOptLabel(f.id, v)}</span>
+                    </div>
+                  ))}
+                  {sel?.size ? (
+                    <>
+                      <div className="menu-sep" />
+                      <div className="menu-item" onClick={() => clearFilter(f.id)}>
+                        <Icon name="x" size={14} />
+                        <span>Clear</span>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         <div className="ctrl-spacer" />
 
