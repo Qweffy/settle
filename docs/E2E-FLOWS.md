@@ -15,7 +15,7 @@ spec that covers each one. Use it to demo the app or to verify a deploy.
 
 ## 1. AI Bill Review (Capture) ★
 **Where:** sidebar → **Capture** · or `/capture` · or ⌘K → "Capture a bill"
-1. Click **"Process sample invoice"** (or drag a PDF onto the dropzone).
+1. Click **"Process sample invoice"** — the demo runs a built-in sample invoice (no file upload needed). Real PDF/image intake + the forwarding inbox are wired for production, where an `ANTHROPIC_API_KEY` lets Claude read the actual file; the hosted demo always uses the sample so it works with zero setup.
 2. Watch **Processing**: detected vendor → read line items → coded to GL → 6 risk checks.
 3. Scroll to **Extracted draft**: fields are pre-filled with `AI` badges + a confidence score, and the **AI Bill Review** panel lists anomalies (e.g. *"Fuel surcharge 32% above 6-month average"*) with severity + **Accept / Dismiss / Verify**.
 4. Triage the flags: **Accept** marks a flag accepted, **Dismiss** marks it dismissed; once **all** flags are resolved the bill is saved as **reviewed**.

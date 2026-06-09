@@ -151,8 +151,8 @@ function StageUpload({ onProcess, pending, onSimulate, simulating }: { onProcess
       <div className="up-body">
         <div className="dropzone" role="button" tabIndex={0} onClick={pending ? undefined : onProcess} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !pending) { e.preventDefault(); onProcess(); } }}>
           <span className="dz-ic"><Icon name="upload-cloud" size={22} /></span>
-          <span className="dz-title">Drop a PDF or image here</span>
-          <span className="dz-sub">Drop a file, forward to <b>{FORWARD_EMAIL}</b>, or upload from your computer. Settle reads it automatically.</span>
+          <span className="dz-title">Read a sample invoice with AI</span>
+          <span className="dz-sub">This demo processes a built-in invoice — no upload needed. In production, Settle also reads PDFs or images dropped here, or forwarded to <b>{FORWARD_EMAIL}</b>.</span>
           <button className="dz-btn" type="button" disabled={pending} onClick={(e) => { e.stopPropagation(); onProcess(); }}>
             <Icon name={pending ? 'loader' : 'sparkles'} size={14} className={pending ? 'spin' : ''} />{pending ? 'Reading…' : 'Process sample invoice'}
           </button>
