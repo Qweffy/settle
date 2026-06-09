@@ -386,7 +386,7 @@ function StageDraft({
 
           <div className="df-actions">
             {!canSave
-              ? <span className="df-hint"><Icon name="upload-cloud" size={13} />Process or upload an invoice to save</span>
+              ? <span className="df-hint" style={{ color: 'var(--review-ink)', background: 'var(--review-bg)', padding: '5px 10px', borderRadius: 7, border: '1px solid color-mix(in srgb, var(--review-solid) 26%, transparent)' }}><Icon name="alert-triangle" size={13} />Can&apos;t save yet — process or upload an invoice first</span>
               : highRisk > 0
               ? <span className="df-hint"><Icon name="shield-alert" size={13} style={{ color: 'var(--failed-ink)' }} />Resolve {highRisk} high-risk flag{highRisk === 1 ? '' : 's'} before approval</span>
               : <span className="df-hint"><Icon name="check" size={13} style={{ color: 'var(--paid-ink)' }} />No high-risk flags open</span>}

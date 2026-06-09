@@ -3,7 +3,7 @@ import { bills, users, activityLog } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { DEMO_NOW } from '@/lib/demo';
 import { requiredApproval, roleSatisfies } from '@/lib/approval-rules';
-import { getCurrentUserId, getActiveOrg } from '@/lib/actions/session';
+import { getCurrentUserId } from '@/lib/actions/session';
 import type {
   Bill,
   Line,
@@ -104,8 +104,10 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
   if (!bill) return null;
 
   // Org users → drive @-mentions in the composer + actor lookups.
-  const org = await getActiveOrg();
-  const userRows = await db.select().from(users).where(eq(users.orgId, org));
+  // Org people for @-mentions, the approver fallback and the role list — scoped
+  // to THIS bill's org (not the active entity), so a bill reached directly still
+  // shows the right people.
+  const userRows = await db.select().from(users).where(eq(users.orgId, bill.orgId));
   const userById = new Map(userRows.map((u) => [u.id, u]));
 
   // Manual edits aren't synthetic timeline nodes — pull them from the audit log.
@@ -354,7 +356,10 @@ export async function getCockpitData(billId: string): Promise<CockpitData | null
   let approvalGate: CockpitData['approvalGate'] = null;
   if (gate) {
     const actorId = await getCurrentUserId();
-    const actorRole = userRows.find((u) => u.id === actorId)?.role ?? 'clerk';
+    // Resolve the actor's role by a direct lookup — the actor may not belong to
+    // this bill's org — mirroring the server-side gate in approveBill.
+    const [actorUser] = await db.select({ role: users.role }).from(users).where(eq(users.id, actorId));
+    const actorRole = actorUser?.role ?? 'clerk';
     approvalGate = {
       requiredRole: gate.requiredRole,
       label: gate.label,

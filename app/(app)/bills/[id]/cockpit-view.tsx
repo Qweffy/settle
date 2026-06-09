@@ -566,6 +566,7 @@ export function CockpitView({ data }: { data: CockpitData }) {
     label: string,
     action: () => Promise<void | ActionResult<unknown>>,
     revert?: () => void,
+    redirectTo?: string,
   ) => {
     showToast(label);
     startTransition(async () => {
@@ -577,7 +578,8 @@ export function CockpitView({ data }: { data: CockpitData }) {
           showToast(res.error, 'red');
           return;
         }
-        router.refresh();
+        if (redirectTo) router.push(redirectTo);
+        else router.refresh();
       } catch {
         revert?.();
         showToast('Something went wrong — please try again', 'red');
@@ -585,8 +587,9 @@ export function CockpitView({ data }: { data: CockpitData }) {
     });
   };
 
-  const handleApprove = () => run('Bill approved', () => approveBill(bill.id));
-  const handleReject = () => run('Bill rejected', () => rejectBill(bill.id));
+  // Approve / reject take the bill out of the queue → return to Approvals.
+  const handleApprove = () => run('Bill approved', () => approveBill(bill.id), undefined, '/approvals');
+  const handleReject = () => run('Bill rejected', () => rejectBill(bill.id), undefined, '/approvals');
   const handleSchedule = () =>
     run('Payment scheduled', () =>
       schedulePayment(bill.id, METHOD_KEY[bill.method] ?? 'ach', isoDaysFromNow(5)),

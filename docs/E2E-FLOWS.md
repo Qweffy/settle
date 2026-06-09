@@ -19,7 +19,7 @@ spec that covers each one. Use it to demo the app or to verify a deploy.
 2. Watch **Processing**: detected vendor → read line items → coded to GL → 6 risk checks.
 3. Scroll to **Extracted draft**: fields are pre-filled with `AI` badges + a confidence score, and the **AI Bill Review** panel lists anomalies (e.g. *"Fuel surcharge 32% above 6-month average"*) with severity + **Accept / Dismiss / Verify**.
 4. Triage the flags: **Accept** marks a flag accepted, **Dismiss** marks it dismissed; once **all** flags are resolved the bill is saved as **reviewed**.
-5. **Save draft** → persists a real bill (line items + flags **with their triage state**) and opens its cockpit. *"Save as draft for approval" is disabled until you Process or upload an invoice — the footer hint guides you.*
+5. **Save draft** → persists a real bill (line items + flags **with their triage state**) and opens its cockpit. *"Save as draft for approval" and **Discard** stay disabled until you Process or upload an invoice — an amber **"Can't save yet — process or upload an invoice first"** message plus the greyed-out buttons make the reason explicit.*
 
 *Expected:* a real draft bill is created and reachable in **Bills → Drafts**. The triage persists onto the saved bill — the cockpit reflects it durably (reloading does **not** reset the flags back to all-open).
 *Reasoning vs OCR:* with `ANTHROPIC_API_KEY` set it calls Claude with the vendor's history; without it, a deterministic mock runs (badge: "Demo parse (no API key)").
@@ -59,9 +59,10 @@ spec that covers each one. Use it to demo the app or to verify a deploy.
 **Where:** the WEX bill (`/bills/b-wex-0529`, $52,180 > $50k)
 1. As **AP Clerk**, the cockpit shows a **"Requires Controller"** chip and **Approve** is disabled.
 2. Switch role (top-right) → **Controller** → reload → **Approve** is enabled.
-3. Alt path: in **Approvals**, as AP Clerk, click Approve on the WEX row → toast *"This bill needs Controller approval"*.
+3. As **Controller**, click **Approve** (or **Reject**) → the bill transitions and you're returned to the **Approvals queue** (the bill has left it).
+4. Alt path: in **Approvals**, as AP Clerk, click Approve on the WEX row → toast *"This bill needs Controller approval"*.
 
-*Expected:* large bills can't be approved below the required role; the message reaches the user.
+*Expected:* large bills can't be approved below the required role; the message reaches the user; approving/rejecting from a cockpit redirects back to the queue rather than sitting on the now-resolved bill.
 *Spec:* `tests/e2e/approval-gate.spec.ts`
 
 ## 7. Bulk actions
