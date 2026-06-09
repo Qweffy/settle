@@ -165,7 +165,7 @@ export function VendorView({ data }: { data: VendorData }) {
     <div className="screen-vendor">
       <div className="wrap">
         <div className="crumbs">
-          <a>Vendors</a><Icon name="chevron-right" size={13} /><span className="cur">{v.name}</span>
+          <Link href="/vendors">Vendors</Link><Icon name="chevron-right" size={13} /><span className="cur">{v.name}</span>
         </div>
 
         {/* header */}
@@ -182,7 +182,7 @@ export function VendorView({ data }: { data: VendorData }) {
             <div className="vh-actions">
               <Link href={`/vendors/${v.vendorId}/edit`} className="btn btn-ghost"><Icon name="pencil" size={15} />Edit vendor</Link>
               <button className="btn btn-ghost"><Icon name="file-text" size={15} />Statement</button>
-              <button className="btn btn-primary"><Icon name="plus" size={15} />New bill</button>
+              <Link href="/bills/new" className="btn btn-primary"><Icon name="plus" size={15} />New bill</Link>
             </div>
           </div>
           <div className="vh-attrs">

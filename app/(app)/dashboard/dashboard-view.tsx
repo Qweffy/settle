@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import {
@@ -58,7 +59,7 @@ function NeedsReview({ items }: { items: ReviewItem[] }) {
         <span className="pt">Needs review</span>
         <span className="ai"><Icon name="sparkles" size={12} />AI flagged</span>
         <span className="pcount">{items.length}</span>
-        <span className="pa">Review all<Icon name="arrow-right" size={13} /></span>
+        <Link className="pa" href="/bills">Review all<Icon name="arrow-right" size={13} /></Link>
       </div>
       {items.map((r, i) => {
         const sev = SEV[r.sev];
@@ -145,7 +146,7 @@ function ActivityText({ a }: { a: ActivityItem }) {
 function Activity({ items }: { items: ActivityItem[] }) {
   return (
     <div className="panel">
-      <div className="panel-head"><span className="pt">Recent activity</span><span className="pa">View all<Icon name="arrow-right" size={13} /></span></div>
+      <div className="panel-head"><span className="pt">Recent activity</span><Link className="pa" href="/bills">View all<Icon name="arrow-right" size={13} /></Link></div>
       <div className="activity">
         {items.map((a, i) => {
           const ic = ACT_ICON[a.type] ?? ACT_ICON_FALLBACK;

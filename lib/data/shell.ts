@@ -37,7 +37,7 @@ export const ROLES: Role[] = [
 ];
 
 export type CmdAction = { id: string; label: string; icon: string; keys: string[] };
-export type CmdRecent = { id: string; label: string; sub: string; icon: string; kind: string };
+export type CmdRecent = { id: string; label: string; sub: string; icon: string; kind: string; href: string };
 export type CmdNav = { id: string; label: string; icon: string; hint: string; href: string };
 
 export const CMD_ACTIONS: CmdAction[] = [
@@ -48,10 +48,10 @@ export const CMD_ACTIONS: CmdAction[] = [
 ];
 
 export const CMD_RECENT: CmdRecent[] = [
-  { id: 'r1', label: 'Regional Landfill Authority', sub: 'INV-44871 · Tipping fees · $86,400.00', icon: 'file-text', kind: 'bill' },
-  { id: 'r2', label: 'WEX Fleet Fuel', sub: 'STMT-0529 · Fuel · in approval', icon: 'file-text', kind: 'bill' },
-  { id: 'r3', label: 'Penske Truck Leasing', sub: 'Vendor · Net 30 · 14 bills', icon: 'building-2', kind: 'vendor' },
-  { id: 'r4', label: 'Heil Environmental', sub: 'Vendor · Fleet maintenance', icon: 'building-2', kind: 'vendor' },
+  { id: 'r1', label: 'Regional Landfill Authority', sub: 'INV-44871 · Tipping fees · $86,400.00', icon: 'file-text', kind: 'bill', href: '/bills' },
+  { id: 'r2', label: 'WEX Fleet Fuel', sub: 'STMT-0529 · Fuel · in approval', icon: 'file-text', kind: 'bill', href: '/bills' },
+  { id: 'r3', label: 'Penske Truck Leasing', sub: 'Vendor · Net 30 · 14 bills', icon: 'building-2', kind: 'vendor', href: '/vendors' },
+  { id: 'r4', label: 'Heil Environmental', sub: 'Vendor · Fleet maintenance', icon: 'building-2', kind: 'vendor', href: '/vendors' },
 ];
 
 export const CMD_NAV: CmdNav[] = [

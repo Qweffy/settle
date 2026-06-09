@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Icon } from '@/components/icon';
 import { fmt } from '@/lib/format';
 import { approveBill, rejectBill } from '@/lib/actions/bills';
@@ -77,13 +78,11 @@ function Preview({
   approverMono,
   onApprove,
   onReject,
-  onToast,
 }: {
   bill: ApprovalBill | null;
   approverMono: string;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
-  onToast: (m: string) => void;
 }) {
   if (!bill) {
     return (
@@ -104,7 +103,7 @@ function Preview({
             <div className="pv-vendor">{bill.vendor}</div>
             <div className="pv-inv">{bill.inv} · {bill.gl}</div>
           </div>
-          <button className="pv-openbtn" onClick={() => onToast('Opening full bill…')}><Icon name="maximize-2" size={13} />Open</button>
+          <Link className="pv-openbtn" href={`/bills/${bill.id}`}><Icon name="maximize-2" size={13} />Open</Link>
         </div>
         <div className="pv-amtrow">
           <div><div className="pv-amt">{fmt(bill.amount)}</div><div className="pv-amtlbl">via {bill.method} · {bill.account}</div></div>
@@ -183,7 +182,7 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<ToastData | null>(null);
   const [scope, setScope] = useState('mine');
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   const showToast = (m: string, tone?: ToastData['tone']) => {
@@ -261,6 +260,7 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
     okToast: string,
     failVerb: string,
   ) => {
+    if (pending) return; // ignore re-entry while a workflow is already running
     const affected = bills.filter((b) => ids.includes(b.id));
     if (affected.length === 0) return;
     showToast(okToast);
@@ -371,7 +371,7 @@ export function ApprovalsView({ data }: { data: ApprovalsData }) {
         </div>
 
         <div className="preview-col">
-          <Preview bill={activeBill} approverMono={data.approverMono} onApprove={approveOne} onReject={rejectOne} onToast={showToast} />
+          <Preview bill={activeBill} approverMono={data.approverMono} onApprove={approveOne} onReject={rejectOne} />
         </div>
       </div>
 

@@ -193,7 +193,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
       id: a.id, label: a.label, icon: a.icon, type: 'action', keys: a.keys,
     }));
     const rec: CmdItem[] = CMD_RECENT.filter((r) => match(r.label) || match(r.sub)).map((r) => ({
-      id: r.id, label: r.label, icon: r.icon, type: 'recent', sub: r.sub,
+      id: r.id, label: r.label, icon: r.icon, type: 'recent', sub: r.sub, href: r.href,
     }));
     const nav: CmdItem[] = CMD_NAV.filter((n) => match(n.label)).map((n) => ({
       id: n.id, label: n.label, icon: n.icon, type: 'nav', hint: n.hint, href: n.href,
@@ -207,7 +207,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   const run = (item?: CmdItem) => {
-    if (item?.type === 'nav' && item.href) router.push(item.href);
+    if ((item?.type === 'nav' || item?.type === 'recent') && item.href) router.push(item.href);
     else if (item?.type === 'action') {
       if (item.id === 'newbill') router.push('/bills/new');
       else if (item.id === 'capture') router.push('/capture');

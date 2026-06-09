@@ -248,6 +248,7 @@ export function PaymentsView({ data }: { data: PaymentsData }) {
   // Run a payment action with optimistic feedback. The server action is the
   // source of truth: refresh on success, surface the error on failure.
   const run = (label: string, action: () => Promise<void>) => {
+    if (busy) return; // guard against double-submit while a transition is in flight
     showToast(label);
     startTransition(async () => {
       try {
