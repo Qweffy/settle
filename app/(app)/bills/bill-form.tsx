@@ -175,6 +175,11 @@ export function BillForm({
             <h1>{isEdit ? 'Edit bill' : 'New bill'}</h1>
             <div className="nb-sub">{isEdit ? 'Update this bill · Summit Waste Services' : 'Enter a bill and route it for approval · Summit Waste Services'}</div>
           </div>
+          {!isEdit && (
+            <Link href="/capture" className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}>
+              <Icon name="scan-line" size={15} />Have a PDF? Capture it with AI
+            </Link>
+          )}
         </div>
 
         <div className="nb-stack">

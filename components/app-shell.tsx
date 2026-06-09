@@ -210,6 +210,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
     if (item?.type === 'nav' && item.href) router.push(item.href);
     else if (item?.type === 'action') {
       if (item.id === 'newbill') router.push('/bills/new');
+      else if (item.id === 'capture') router.push('/capture');
       else if (item.id === 'record') router.push('/payments');
       else if (item.id === 'vendor') router.push('/vendors/new');
     }
@@ -287,6 +288,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 const GOTO: Record<string, string> = {
   d: '/dashboard',
   b: '/bills',
+  c: '/capture',
   v: '/vendors',
   a: '/approvals',
   p: '/payments',

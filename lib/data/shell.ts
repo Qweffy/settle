@@ -13,6 +13,7 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', href: '/dashboard' },
   { id: 'bills', label: 'Bills', icon: 'file-text', href: '/bills', review: 3 },
+  { id: 'capture', label: 'Capture', icon: 'scan-line', href: '/capture' },
   { id: 'approvals', label: 'Approvals', icon: 'check-circle-2', href: '/approvals', count: 5 },
   { id: 'vendors', label: 'Vendors', icon: 'building-2', href: '/vendors' },
   { id: 'payments', label: 'Payments', icon: 'banknote', href: '/payments' },
@@ -41,6 +42,7 @@ export type CmdNav = { id: string; label: string; icon: string; hint: string; hr
 
 export const CMD_ACTIONS: CmdAction[] = [
   { id: 'newbill', label: 'New bill', icon: 'plus', keys: ['⌘', 'N'] },
+  { id: 'capture', label: 'Capture a bill', icon: 'scan-line', keys: ['G', 'C'] },
   { id: 'record', label: 'Record payment', icon: 'banknote', keys: ['⌘', 'P'] },
   { id: 'vendor', label: 'Add vendor', icon: 'building-2', keys: ['⌘', '⇧', 'V'] },
 ];
