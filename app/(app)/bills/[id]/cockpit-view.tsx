@@ -549,9 +549,10 @@ export function CockpitView({ data }: { data: CockpitData }) {
   const [toast, setToast] = useState<ToastData | null>(null);
   const [busy, startTransition] = useTransition();
   const router = useRouter();
-  const showToast = (msg: string, tone?: ToastData['tone']) => {
-    setToast({ title: msg, tone });
-    setTimeout(() => setToast(null), 2600);
+  const showToast = (msg: string, tone?: ToastData['tone'], onRetry?: () => void) => {
+    setToast({ title: msg, tone, onRetry });
+    // Error toasts with a Retry linger longer so there's time to click it.
+    setTimeout(() => setToast(null), onRetry ? 6000 : 2600);
   };
 
   // The current user (approver) authors new comments. @mentions resolve
@@ -582,7 +583,10 @@ export function CockpitView({ data }: { data: CockpitData }) {
         else router.refresh();
       } catch {
         revert?.();
-        showToast('Something went wrong — please try again', 'red');
+        // Unexpected (transient) failure → offer a real Retry that re-runs the
+        // same action. Business rules (res.ok === false) intentionally don't,
+        // since retrying without changing role/state would just fail again.
+        showToast('Something went wrong — please try again', 'red', () => run(label, action, revert, redirectTo));
       }
     });
   };

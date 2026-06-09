@@ -72,7 +72,7 @@ function PayTable({
               <td>
                 <div className="pv-cell">
                   <span className="pv-av">{r.mono}</span>
-                  <div><div className="pv-n">{r.vendor}</div>{r.bills > 1 && <div className="pv-bills">{r.bills} bills consolidated</div>}</div>
+                  <div><div className="pv-n">{r.vendor}</div></div>
                 </div>
               </td>
               <td className="r"><span className="pay-amt">{fmt(r.amount)}</span></td>
@@ -155,7 +155,7 @@ function ScheduleModal({
             <div className="mlabel">Bills to pay<span className="ml-r">{selBills.length} of {m.openBills.length} selected</span></div>
             <div className="consolidate">
               <Icon name="layers" size={15} className="ci" />
-              <div className="ct"><b>{m.vendor}</b> has {m.openBills.length} approved bills. Pay them together to send <b>one</b> ACH instead of {m.openBills.length} — fewer fees and one reference for reconciliation.</div>
+              <div className="ct"><b>{m.vendor}</b> has {m.openBills.length} approved bills — schedule them together in one pass so they&apos;re paid on the same date.</div>
             </div>
             {m.openBills.map((b) => {
               const on = checked.has(b.id);
