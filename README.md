@@ -18,8 +18,9 @@ The **bill cockpit** — invoice image, line-item GL coding, and an auditable co
 
 | | |
 |:--|:--|
-| ![Dashboard](docs/screenshots/dashboard.png)<br>**Dashboard** — scorecards, the AI-flagged review queue, cash-out by week, and a live activity feed | ![AI Bill Review](docs/screenshots/capture.png)<br>**AI Bill Review** — the invoice is read *and scrutinized against vendor history*, not just OCR'd |
-| ![Bills](docs/screenshots/bills.png)<br>**Bills** — filters, saved views, bulk actions, and derived status pills | ![Payment failed](docs/screenshots/payment-failed.png)<br>**Graceful failure** — an in-context payment-failed recovery card |
+| ![Dashboard](docs/screenshots/dashboard.png)<br>**Dashboard** — scorecards, the AI-flagged review queue, cash-out by week, a live activity feed, and a non-blocking QuickBooks sync banner | ![AI Bill Review](docs/screenshots/capture.png)<br>**AI Bill Review (Capture)** — the invoice is read *and scrutinized against vendor history*; accept/dismiss each flag and the triage carries onto the bill |
+| ![Bills](docs/screenshots/bills.png)<br>**Bills** — multi-select filters (open here), saved views, bulk actions, CSV import/export, and derived status pills | ![Approvals](docs/screenshots/approvals.png)<br>**Approvals** — a queue grouped by urgency with an inline preview; the $50k gate routes to the Controller |
+| ![AP Aging](docs/screenshots/aging.png)<br>**AP Aging** — outstanding payables bucketed by age, with CSV export | ![Payment failed](docs/screenshots/payment-failed.png)<br>**Graceful failure** — an in-context payment-failed recovery card (Retry / re-route via ACH) |
 
 ---
 
@@ -38,7 +39,7 @@ A finance team lives in four workflows, and Settle is organized around them:
 - **Invoice‑centric cockpit** — image + coding + a shared, timestamped, auditable comment thread on one screen (the Stampli pattern), so the "why is this surcharge higher?" conversation lives on the bill instead of in scattered email.
 - **AP controls** — code-side **duplicate detection** (warns when the same vendor + invoice # arrives twice) and an **approval-rules engine** that routes large bills to a senior role (over $10k → Approver, over $50k → Controller), enforced server-side and surfaced as a gate in the cockpit.
 
-Beyond the core, the build also ships **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts) with reusable **allocation templates**, **expense vs. item** line coding, a simulated **AP forwarding inbox**, a **Settings** page (chart of accounts + recurring schedules + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
+Beyond the core, the build also ships **multi-select table filters** and **saved views**, **recurring schedules** (draft the next bill on a cadence), **line-item splits** (one line across multiple GL accounts) with reusable **allocation templates**, **expense vs. item** line coding, a simulated **AP forwarding inbox**, a **Settings** page (chart of accounts + recurring schedules + approval rules), **bulk** submit/approve/schedule/pay over a table selection, real CSV export, and a ⌘K palette + keyboard shortcuts (`c` for a new bill, `g`-then-key to navigate).
 
 ---
 
