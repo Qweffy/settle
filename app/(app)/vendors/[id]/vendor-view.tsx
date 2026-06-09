@@ -122,13 +122,31 @@ function StatusPill({ status }: { status: HistoryStatus }) {
 
 function History({ history }: { history: VendorData['history'] }) {
   const total = history.reduce((s, b) => s + b.amount, 0);
+  const exportCsv = () => {
+    const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const lines = [
+      'Invoice #,Amount,Status,Issued,Paid date',
+      ...history.map((b) =>
+        [b.inv, b.amount.toFixed(2), b.status, b.issued, b.paid].map((x) => cell(String(x))).join(','),
+      ),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'vendor-bills.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
   return (
     <div className="hist-card">
       <div className="hist-head">
         <span className="ht">Bills history</span>
         <span className="hcount">· {history.length} bills</span>
         <span className="hspacer" />
-        <span className="haction"><Icon name="download" size={13} />Export</span>
+        <span className="haction" role="button" tabIndex={0} onClick={exportCsv} onKeyDown={(e) => { if (e.key === 'Enter') exportCsv(); }}><Icon name="download" size={13} />Export</span>
       </div>
       <table className="vh-tbl">
         <thead><tr><th>Invoice #</th><th className="r">Amount</th><th>Status</th><th>Issued</th><th>Paid date</th></tr></thead>
@@ -181,7 +199,6 @@ export function VendorView({ data }: { data: VendorData }) {
             </div>
             <div className="vh-actions">
               <Link href={`/vendors/${v.vendorId}/edit`} className="btn btn-ghost"><Icon name="pencil" size={15} />Edit vendor</Link>
-              <button className="btn btn-ghost"><Icon name="file-text" size={15} />Statement</button>
               <Link href="/bills/new" className="btn btn-primary"><Icon name="plus" size={15} />New bill</Link>
             </div>
           </div>

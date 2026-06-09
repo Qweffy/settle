@@ -153,8 +153,6 @@ function BillHeader({
         <div className="banner">
           <Icon name="alert-triangle" size={18} className="bn-ic" />
           <span className="bn-text"><b>Needs review.</b> Settle AI flagged {flagCount} issue{flagCount === 1 ? '' : 's'} on this bill — review them before approving.</span>
-          <span className="bn-spacer" />
-          <span className="bn-link">Jump to review<Icon name="arrow-down" size={14} /></span>
         </div>
       )}
     </div>
@@ -216,7 +214,6 @@ function LeftPanel({ bill, lines, totals }: { bill: Bill; lines: Line[]; totals:
         <button className="tool" title="Rotate" onClick={() => setRot((r) => r + 90)}><Icon name="rotate-cw" size={15} /></button>
         <button className="tool" title="Fit" onClick={() => { setZoom(100); setRot(0); }}><Icon name="maximize-2" size={15} /></button>
         <span className="pageinfo">1 / 1</span>
-        <button className="tool" title="Download"><Icon name="download" size={15} /></button>
       </div>
       <div className="viewer">
         <div className="viewer-inner" style={{ transform: `scale(${zoom / 100}) rotate(${rot}deg)` }}>
@@ -303,8 +300,6 @@ function CenterPanel({
       <div className="panel-bar">
         <span className="pb-title"><Icon name="list-tree" size={15} />Coding &amp; review</span>
         <span className="pb-spacer" />
-        <button className="tool" title="Reconcile to QuickBooks"><Icon name="arrow-left-right" size={15} /></button>
-        <button className="tool" title="More"><Icon name="more-horizontal" size={15} /></button>
       </div>
       <div className="center-scroll">
         {/* details */}
@@ -538,8 +533,6 @@ function RightPanel({ timeline, people, onSend }: { timeline: TimelineNode[]; pe
             >
               <Icon name="at-sign" size={15} />
             </button>
-            <button className="cf-tool" title="Attach"><Icon name="paperclip" size={15} /></button>
-            <button className="cf-tool" title="Emoji"><Icon name="smile" size={15} /></button>
             <span className="cf-spacer" />
             <button className="send" disabled={!text.trim()} onClick={send}><Icon name="send-horizontal" size={13} />Comment</button>
           </div>

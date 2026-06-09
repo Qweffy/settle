@@ -213,7 +213,6 @@ export function DashboardView({ data }: { data: DashboardData }) {
                 <button key={r} className={range === r ? 'on' : ''} onClick={() => setRange(r)}>{r}</button>
               ))}
             </div>
-            <button className="btn btn-ghost"><Icon name="arrow-left-right" size={15} />Reconcile</button>
           </div>
         </div>
 

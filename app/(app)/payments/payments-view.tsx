@@ -83,7 +83,6 @@ function PayTable({
                 {tab === 'scheduled' && (
                   <span className="row-act" title="Mark paid" onClick={(e) => { e.stopPropagation(); onMarkPaid(r); }}><Icon name="check-circle-2" size={16} /></span>
                 )}
-                <span className="row-act" title="More"><Icon name="more-horizontal" size={16} /></span>
               </td>
             </tr>
           ))}
@@ -147,7 +146,6 @@ function ScheduleModal({
             <div className="vendor-pick">
               <span className="vp-av">{m.mono}</span>
               <div><div className="vp-n">{m.vendor}</div><div className="vp-s">{m.terms} · ACH ••1234</div></div>
-              <Icon name="chevrons-up-down" size={16} className="vp-chev" />
             </div>
           </div>
 

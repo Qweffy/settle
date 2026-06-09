@@ -97,8 +97,6 @@ function Topbar({ onSearch, initialRoleIdx }: { onSearch: () => void; initialRol
                 {i === entityIdx && <Icon name="check" size={16} className="check" />}
               </div>
             ))}
-            <div className="menu-sep" />
-            <div className="menu-foot"><Icon name="plus" size={15} />Add entity</div>
           </div>
         )}
       </div>
@@ -143,8 +141,6 @@ function Topbar({ onSearch, initialRoleIdx }: { onSearch: () => void; initialRol
                 {i === roleIdx && <Icon name="check" size={16} className="check" />}
               </div>
             ))}
-            <div className="menu-sep" />
-            <div className="menu-foot"><Icon name="log-out" size={15} />Sign out</div>
           </div>
         )}
       </div>

@@ -10,6 +10,30 @@ import './aging.css';
 // aging cells render an em dash for zero amounts
 const fmtCell = (n: number) => (n === 0 ? '—' : fmt(n));
 
+// Export the aging matrix as CSV (vendor × bucket + total).
+function downloadAgingCsv(data: AgingData) {
+  const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const headers = ['Vendor', 'GL', ...BUCKETS.map((b) => b.label), 'Total'];
+  const lines = [
+    headers.join(','),
+    ...data.rows.map((r) => {
+      const total = r.cells.reduce((s, v) => s + v, 0);
+      return [r.vendor, r.gl, ...r.cells.map((v) => v.toFixed(2)), total.toFixed(2)]
+        .map((x) => cell(String(x)))
+        .join(',');
+    }),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ap-aging.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function Summary({ data }: { data: AgingData }) {
   const { rows, colTotals, grand } = data;
   const overdue = colTotals.slice(2).reduce((s, v) => s + v, 0); // 31d+
@@ -74,7 +98,7 @@ function Matrix({ data }: { data: AgingData }) {
         <span className="tt">Aging by vendor</span>
         <span className="tsub">· {rows.length} vendors</span>
         <span className="tspacer" />
-        <button className="btn btn-ghost"><Icon name="download" size={15} />Export</button>
+        <button className="btn btn-ghost" onClick={() => downloadAgingCsv(data)}><Icon name="download" size={15} />Export</button>
       </div>
       <div className="tbl-scroll">
         <table className="aging">
@@ -120,7 +144,7 @@ function Matrix({ data }: { data: AgingData }) {
           </tfoot>
         </table>
       </div>
-      <div className="tbl-note"><Icon name="info" size={13} />Cells aged 31+ days are tinted by severity. Click a vendor to open its detail.</div>
+      <div className="tbl-note"><Icon name="info" size={13} />Cells aged 31+ days are tinted by severity.</div>
     </div>
   );
 }
@@ -141,7 +165,7 @@ export function AgingView({ data }: { data: AgingData }) {
                 <button key={r} className={asOf === r ? 'on' : ''} onClick={() => setAsOf(r)}>{r}</button>
               ))}
             </div>
-            <button className="btn btn-ghost"><Icon name="download" size={15} />Export</button>
+            <button className="btn btn-ghost" onClick={() => downloadAgingCsv(data)}><Icon name="download" size={15} />Export</button>
           </div>
         </div>
 
