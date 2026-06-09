@@ -114,7 +114,7 @@ Live at **[settle-qweffys-projects.vercel.app](https://settle-qweffys-projects.v
 
 ## Testing
 
-Three layers, weighted toward end-to-end coverage of the real workflows:
+Three layers, weighted toward end-to-end coverage of the real workflows. A **manual walkthrough of every feature** (each with its matching spec) is in **[docs/E2E-FLOWS.md](docs/E2E-FLOWS.md)**.
 
 | Layer | Tool | What it covers |
 | --- | --- | --- |
